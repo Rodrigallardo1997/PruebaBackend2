@@ -199,43 +199,6 @@ Acceder a:
 * **Panel de Administración:** `http://127.0.0.1:8000/admin/`
 
 ---
-
-## 🎓 5. Guía de Defensa Oral y Justificación Técnica (70 Puntos de Rúbrica)
-
-Durante la defensa oral individual ante el docente evaluador, se deben dominar y argumentar los siguientes 6 puntos analíticos de la pauta:
-
-### 1. Dominio de la Arquitectura, PostgreSQL y Modelos (12 Puntos)
-* **Pregunta Docente:** *¿Cómo está configurado PostgreSQL y cómo se manejan las relaciones y CHOICES?*
-* **Respuesta:** En `settings.py` se establece `'ENGINE': 'django.db.backends.postgresql'`. El modelo implementa normalización en 3FN: relación `1:1` entre `Usuario` y `CarroPasajes`, relación `1:N` entre `Bus` y sus `Asiento`, `Ruta` y `Servicio`, y `OrdenCompra` con sus `Boleto`. Se utilizan `CHOICES` explícitos para estados operativos (`ESTADOS_SERVICIO_CHOICES`: PROGRAMADO, EN_RUTA, FINALIZADO, CANCELADO), tipos de confort (`TIPOS_ASIENTO_CHOICES`: SEMICAMA, CAMA) y estados de transacción (`ESTADOS_ORDEN_CHOICES`: PENDIENTE, PAGADO, CANCELADO, COMPLETADO).
-
-### 2. Flujo JWT, Claims de Rol y Permisos RBAC (12 Puntos)
-* **Pregunta Docente:** *¿Dónde y cómo viaja el rol del usuario en el token JWT y cómo DRF restringe el acceso?*
-* **Respuesta:** Se extiende `TokenObtainPairSerializer` en `CustomTokenObtainPairSerializer`. En el método `get_token(cls, user)`, se inyectan en el payload criptográfico: `token['role'] = user.rol`, `token['username'] = user.username` y `token['user_id'] = user.id`. En `permissions.py`, las clases `IsPasajero` e `IsAdminFlota` leen `request.user.rol`. Por ejemplo, `POST /api/servicios/` exige `IsAdminFlota`, retornando HTTP `403 Forbidden` si un pasajero intenta mutar itinerarios.
-
-### 3. Persistencia del Carro de Compras Post-Logout (12 Puntos)
-* **Pregunta Docente:** *¿Por qué el carro de compras no se borra si el usuario cierra sesión o usa otro navegador?*
-* **Respuesta:** Porque el carro no reside en la memoria de sesión temporal de Django (`django_session`) ni en el LocalStorage de frontend; reside físicamente en la tabla `transporte_carropasajes` y `transporte_itemcarro` de PostgreSQL, asociado por clave foránea única (`OneToOneField`) al `user_id` del pasajero. Al autenticarse desde cualquier dispositivo, la vista `CarroPasajesView` ejecuta `CarroPasajes.objects.get(usuario=request.user)`, recuperando inmediatamente los ítems y los datos de ocupantes registrados.
-
-### 4. Ciclo Transaccional, Bloqueo Atómico y Stock (12 Puntos)
-* **Pregunta Docente:** *¿En qué momento se descuenta el asiento y cómo se previene la sobreventa simultánea?*
-* **Respuesta:** **El asiento NO se bloquea al meterlo al carro.** El inventario se descuenta únicamente en el momento exacto del Checkout (`POST /api/ventas/checkout/`). Para evitar condiciones de carrera si dos usuarios intentan comprar el mismo asiento al mismo milisegundo:
-  1. Se abre una transacción ACID atómica: `with transaction.atomic():`.
-  2. Se ejecuta un bloqueo pesimista en base de datos: `Asiento.objects.select_for_update().filter(id__in=asiento_ids)`.
-  3. Se verifica si existe algún `Boleto` activo para ese `(servicio, asiento)` en una orden con estado `PAGADO` o `COMPLETADO`.
-  4. Si está ocupado, la transacción aborta automáticamente (Rollback) y retorna HTTP `400 Bad Request`.
-  5. Si está disponible, la orden se crea en `PENDIENTE` y transiciona a `PAGADO`, se emiten los boletos con código `UUID v4` irrepetible y se vacía el carro.
-  6. **Reversión de Inventario:** Si un administrador de flota cambia la orden a `CANCELADO` (`PATCH /api/ventas/{id}/estado/`), los boletos se marcan con `activo=False`, devolviendo inmediatamente el asiento al inventario público de servicios disponibles.
-
-### 5. Filtrado con django-filter y OpenAPI Swagger (10 Puntos)
-* **Pregunta Docente:** *¿Cómo opera el filtrado en `/api/servicios/buscar/` y cómo se documenta la API?*
-* **Respuesta:** Se implementa `ServicioFilter(django_filters.FilterSet)` en `filters.py`. Permite filtrar de forma declarativa por ID de origen/destino (`ruta__origen__id`), búsqueda por texto parcial (`ruta__origen__nombre__icontains`), fecha exacta (`fecha_hora_salida__date`) y rango de tarifas. Mediante `drf-spectacular`, toda la especificación se mapea a OpenAPI 3.0, visible en `/api/docs/` con soporte interactivo para probar tokens Bearer JWT y esquemas de entrada/salida.
-
-### 6. Calidad de Código, Comentarios y Footer Base (12 Puntos)
-* **Pregunta Docente:** *¿Dónde se visualizan los datos del estudiante y cómo está documentado el código?*
-* **Respuesta:** Todo el código fuente cuenta con comentarios explicativos en bloques antes de cada clase, método y función describiendo la regla de negocio y la decisión arquitectónica adoptada. Además, la raíz `/` y el endpoint `/api/info/` renderizan los datos obligatorios del alumno: Nombre Completo, Sección y Año `2026`, cumpliendo con el pie de página requerido.
-
----
-
 ## 🧪 6. Ejemplos de Peticiones HTTP (cURL)
 
 ### 1. Iniciar Sesión (Login) y Obtener JWT con Claims
