@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ info.proyecto }} - EVA 2 Backend</title>
+    <!-- Bootstrap 5 CSS & Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <style>
+        body {
+            background-color: #f8fafc;
+            color: #0f172a;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        }
+        .hero {
+            background: linear-gradient(135deg, #1e3a8a 0%, #0369a1 100%);
+            color: white;
+            padding: 3.5rem 1rem;
+            border-radius: 0 0 1.5rem 1.5rem;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.12);
+        }
+        .card-custom {
+            border: 1px solid #e2e8f0;
+            border-radius: 1rem;
+            background: white;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .card-custom:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.08);
+        }
+        footer {
+            margin-top: auto;
+            background-color: #0f172a;
+            color: #f8fafc;
+            padding: 2.2rem 0;
+            border-top: 4px solid #38bdf8;
+        }
+        .footer-highlight {
+            color: #38bdf8;
+            font-weight: 700;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- CABECERA HERO INSTITUCIONAL -->
+    <header class="hero text-center">
+        <div class="container">
+            <div class="badge bg-warning text-dark px-3 py-2 rounded-pill fw-bold mb-3 shadow-sm">
+                Evaluación EVA-2 &bull; Desarrollo Backend (25%)
+            </div>
+            <h1 class="display-5 fw-bold mb-2">🚍 {{ info.proyecto }}</h1>
+            <p class="lead mb-4 opacity-90">{{ info.asignatura }} &bull; Año {{ info.anio }}</p>
+
+            <div class="d-flex justify-content-center gap-3 flex-wrap">
+                <a href="/app/" class="btn btn-success btn-lg fw-bold px-4 shadow-sm">
+                    <i class="bi bi-display me-2"></i>Aplicación Web (Frontend Conectado)
+                </a>
+                <a href="/api/docs/" class="btn btn-light btn-lg fw-bold px-4 shadow-sm" target="_blank">
+                    <i class="bi bi-file-earmark-code text-primary me-2"></i>Documentación OpenAPI (Swagger)
+                </a>
+                <a href="/admin/" class="btn btn-warning btn-lg fw-bold px-4 shadow-sm" target="_blank">
+                    <i class="bi bi-shield-lock text-dark me-2"></i>Panel de Administración Django
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <!-- CONTENIDO PRINCIPAL: TARJETAS TÉCNICAS FORMALES -->
+    <main class="container my-5">
+        <div class="row g-4">
+            
+            <!-- TARJETA 1: ARQUITECTURA Y PERSISTENCIA -->
+            <div class="col-md-6 col-lg-4">
+                <div class="card card-custom h-100 p-4">
+                    <h5 class="fw-bold text-primary mb-3">
+                        <i class="bi bi-cpu me-2"></i>Stack Tecnológico
+                    </h5>
+                    <ul class="list-unstyled small mb-0">
+                        <li class="mb-2"><strong>Lenguaje:</strong> Python 3.14</li>
+                        <li class="mb-2"><strong>Framework:</strong> Django REST Framework (DRF)</li>
+                        <li class="mb-2"><strong>Base de Datos:</strong> PostgreSQL nativo (<code>buses_chile_db</code>)</li>
+                        <li class="mb-2"><strong>Autenticación:</strong> SimpleJWT con Claims de Rol</li>
+                        <li class="mb-2"><strong>Filtros:</strong> django-filter declarativo</li>
+                        <li><strong>Documentación:</strong> drf-spectacular (OpenAPI 3.0)</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- TARJETA 2: CONTROL DE ACCESO (RBAC) Y MULTI-TENANCY -->
+            <div class="col-md-6 col-lg-4">
+                <div class="card card-custom h-100 p-4">
+                    <h5 class="fw-bold text-primary mb-3">
+                        <i class="bi bi-shield-check me-2"></i>Matriz de Roles y Multi-Tenancy
+                    </h5>
+                    <div class="mb-3">
+                        <span class="badge bg-success px-3 py-1 rounded-pill">Rol Pasajero</span>
+                        <p class="small text-muted mt-2 mb-0">
+                            Carro persistente post-logout en PostgreSQL, checkout atómico con bloqueo de asientos y boletos con UUID único.
+                        </p>
+                    </div>
+                    <div class="mb-3">
+                        <span class="badge bg-danger px-3 py-1 rounded-pill">Rol Administrador de Flota</span>
+                        <p class="small text-muted mt-2 mb-0">
+                            Gestión de itinerarios, administración de flota y cancelación de órdenes con reversión automática de stock.
+                        </p>
+                    </div>
+                    <div>
+                        <span class="badge bg-primary px-3 py-1 rounded-pill">Arquitectura Multi-Tenant</span>
+                        <p class="small text-muted mt-2 mb-0">
+                            Aislamiento por empresa operadora: Turbus, Pullman Bus y EME Bus.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TARJETA 3: ESPECIFICACIÓN DE ENDPOINTS -->
+            <div class="col-md-12 col-lg-4">
+                <div class="card card-custom h-100 p-4">
+                    <h5 class="fw-bold text-primary mb-3">
+                        <i class="bi bi-signpost-split me-2"></i>Endpoints Principales
+                    </h5>
+                    <div class="small">
+                        <div class="mb-2">
+                            <a href="/api/servicios/buscar/" target="_blank" class="fw-bold text-decoration-none">
+                                <span class="badge bg-primary">GET</span> /api/servicios/buscar/
+                            </a>
+                            <div class="text-muted" style="font-size: 0.8rem;">Catálogo de viajes con filtros por fecha, ciudad y empresa.</div>
+                        </div>
+                        <div class="mb-2">
+                            <a href="/api/servicios/1/asientos/" target="_blank" class="fw-bold text-decoration-none">
+                                <span class="badge bg-primary">GET</span> /api/servicios/1/asientos/
+                            </a>
+                            <div class="text-muted" style="font-size: 0.8rem;">Disponibilidad de asientos en tiempo real.</div>
+                        </div>
+                        <div class="mb-2">
+                            <span class="badge bg-secondary">POST</span> <code>/api/token/</code>
+                            <div class="text-muted" style="font-size: 0.8rem;">Autenticación JWT con claims de rol y tenant.</div>
+                        </div>
+                        <div class="mb-2">
+                            <span class="badge bg-success">GET|POST</span> <code>/api/carro-pasajes/</code>
+                            <div class="text-muted" style="font-size: 0.8rem;">Carro persistente en PostgreSQL.</div>
+                        </div>
+                        <div class="mb-0">
+                            <span class="badge bg-warning text-dark">POST</span> <code>/api/ventas/checkout/</code>
+                            <div class="text-muted" style="font-size: 0.8rem;">Pago atómico ACID y emisión de boletos UUID.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- PIE DE PÁGINA FORMAL (DATOS OBLIGATORIOS DEL ALUMNO) -->
+    <footer>
+        <div class="container text-center">
+            <div class="row align-items-center g-3">
+                <div class="col-md-4 text-md-start">
+                    <p class="mb-0 fw-semibold">Asignatura: <span class="footer-highlight">{{ info.asignatura }}</span></p>
+                    <small class="text-secondary">{{ info.proyecto }}</small>
+                </div>
+                <div class="col-md-4">
+                    <h5 class="mb-2 footer-highlight">DATOS DEL ESTUDIANTE</h5>
+                    <div class="d-inline-block bg-primary px-3 py-1 rounded-pill text-white fw-bold fs-6 mb-1 shadow-sm">
+                        Alumno: {{ info.alumno }}
+                    </div>
+                    <p class="mb-0 small text-light mt-1">
+                        <strong>Sección:</strong> <span class="badge bg-dark border border-secondary">{{ info.seccion }}</span> &bull; 
+                        <strong>Año:</strong> <span class="badge bg-dark border border-secondary">{{ info.anio }}</span>
+                    </p>
+                </div>
+                <div class="col-md-4 text-md-end">
+                    <span class="badge bg-secondary">Versión {{ info.version }}</span>
+                    <p class="small text-secondary mb-0 mt-1">&copy; {{ info.anio }} - Todos los derechos reservados.</p>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Bootstrap 5 JS Bundle -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

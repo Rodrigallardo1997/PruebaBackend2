@@ -1,0 +1,29 @@
+# ==============================================================================
+# PROYECTO: SISTEMA DE RESERVAS DE PASAJES DE BUSES INTERURBANOS (EVA-2)
+# DEPENDENCIAS DEL PROYECTO BACKEND (requirements.txt)
+# ==============================================================================
+# Este archivo define las librerías exactas requeridas para la ejecución
+# del sistema backend con Django REST Framework, autenticación SimpleJWT,
+# persistencia en PostgreSQL, filtrado avanzado y documentación OpenAPI/Swagger.
+# ==============================================================================
+
+# Framework Web Central
+Django>=5.0,<6.2
+
+# Framework de Construcción de APIs RESTful
+djangorestframework>=3.15.0
+
+# Autenticación basada en Tokens JSON Web Token (JWT)
+djangorestframework-simplejwt>=5.3.0
+
+# Driver y Conector de Base de Datos PostgreSQL
+psycopg2-binary>=2.9.9
+
+# Motor de Filtrado Declarativo para Consultas de DRF
+django-filter>=24.0
+
+# Generador de Especificación OpenAPI 3.0 e Interfaz Swagger Interactiva
+drf-spectacular>=0.27.0
+
+# Gestión de Variables de Entorno (Opcional para entornos de despliegue)
+python-dotenv>=1.0.0

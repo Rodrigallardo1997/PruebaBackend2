@@ -1,0 +1,2003 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Buses Chile - Sistema de Reserva de Pasajes (EVA-2)</title>
+    <!-- Bootstrap 5 CSS & Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <style>
+        :root {
+            --primary-blue: #1e3a8a;
+            --accent-blue: #0284c7;
+            --bus-free: #10b981;
+            --bus-taken: #ef4444;
+            --bus-selected: #3b82f6;
+        }
+        body {
+            background-color: #f8fafc;
+            color: #0f172a;
+            font-family: system-ui, -apple-system, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        .navbar-custom {
+            background: linear-gradient(135deg, var(--primary-blue), var(--accent-blue));
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .bus-diagram {
+            background: #e2e8f0;
+            border-radius: 1.5rem;
+            padding: 1.5rem;
+            border: 3px solid #94a3b8;
+            max-width: 500px;
+            margin: 0 auto;
+        }
+        .bus-floor-title {
+            background: #cbd5e1;
+            padding: 0.4rem 1rem;
+            border-radius: 1rem;
+            font-weight: 700;
+            font-size: 0.85rem;
+            text-align: center;
+            margin-bottom: 1rem;
+        }
+        .seat-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 0.8rem;
+            justify-content: center;
+        }
+        .seat-btn {
+            aspect-ratio: 1;
+            border-radius: 0.6rem;
+            border: 2px solid transparent;
+            font-weight: 700;
+            font-size: 0.85rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .seat-free {
+            background-color: #d1fae5;
+            color: #065f46;
+            border-color: #10b981;
+        }
+        .seat-free:hover {
+            background-color: #10b981;
+            color: white;
+            transform: scale(1.05);
+        }
+        .seat-taken {
+            background-color: #fee2e2;
+            color: #991b1b;
+            border-color: #ef4444;
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+        .seat-selected {
+            background-color: #3b82f6 !important;
+            color: white !important;
+            border-color: #1d4ed8 !important;
+            transform: scale(1.05);
+        }
+        .card-service {
+            border: 1px solid #e2e8f0;
+            border-radius: 1rem;
+            transition: all 0.2s ease;
+            background: white;
+        }
+        .card-service:hover {
+            box-shadow: 0 10px 20px -5px rgba(0,0,0,0.08);
+            border-color: #cbd5e1;
+        }
+        .ticket-card {
+            border: 2px dashed #0284c7;
+            background: #f0f9ff;
+            border-radius: 1rem;
+            padding: 1.5rem;
+            position: relative;
+        }
+        .badge-tenant {
+            font-size: 0.8rem;
+            padding: 0.35rem 0.75rem;
+            border-radius: 2rem;
+            font-weight: 600;
+        }
+        .kpi-card {
+            border-radius: 1rem;
+            border: 1px solid #e2e8f0;
+            background: white;
+            padding: 1.25rem;
+            transition: transform 0.15s ease;
+        }
+        .kpi-card:hover {
+            transform: translateY(-2px);
+        }
+        footer {
+            margin-top: auto;
+            background: #0f172a;
+            color: #cbd5e1;
+            padding: 1.8rem 0;
+            border-top: 4px solid var(--accent-blue);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- NAVBAR PRINCIPAL -->
+    <nav class="navbar navbar-expand-lg navbar-dark navbar-custom sticky-top">
+        <div class="container">
+            <a class="navbar-brand fw-bold d-flex align-items-center gap-2" href="/app/">
+                <span class="fs-3">🚍</span>
+                <div>
+                    <div class="lh-1">Buses Chile</div>
+                    <small class="opacity-75" style="font-size: 0.75rem;">Sistema Multi-Tenant &bull; EVA-2</small>
+                </div>
+            </a>
+
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navMenu">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+
+            <div class="collapse navbar-collapse" id="navMenu">
+                <ul class="navbar-nav me-auto mb-2 mb-lg-0 ms-lg-3">
+                    <li class="nav-item">
+                        <a class="nav-link active fw-semibold" href="#seccion-viajes"><i class="bi bi-search me-1"></i>Buscar Viajes</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link fw-semibold" href="javascript:void(0)" onclick="abrirMisBoletos()"><i class="bi bi-ticket-perforated me-1"></i>Mis Boletos</a>
+                    </li>
+                    <!-- ELEMENTOS PARA ADMINISTRADORES DE COMPAÑÍA / FLOTA (Y SUPERUSUARIO) -->
+                    <li class="nav-item item-tenant-admin d-none">
+                        <a id="navLinkPanelEmpresa" class="nav-link fw-semibold text-warning" href="javascript:void(0)" onclick="abrirPanelEmpresa()"><i class="bi bi-buildings-fill me-1"></i>Panel de Compañía</a>
+                    </li>
+                    <li class="nav-item item-tenant-admin d-none">
+                        <a class="nav-link fw-semibold text-light opacity-75" href="javascript:void(0)" onclick="abrirModalAdminFlota()"><i class="bi bi-gear-fill me-1"></i>Gestor Flota</a>
+                    </li>
+                    <!-- ELEMENTOS EXCLUSIVOS DEL SUPERUSUARIO (ADMIN GLOBAL) -->
+                    <li class="nav-item item-superuser-only d-none">
+                        <a class="nav-link fw-semibold text-info" href="/api/docs/" target="_blank"><i class="bi bi-file-code me-1"></i>Swagger</a>
+                    </li>
+                    <li class="nav-item item-superuser-only d-none">
+                        <a class="nav-link fw-semibold text-danger" href="/admin/" target="_blank"><i class="bi bi-shield-lock me-1"></i>Admin</a>
+                    </li>
+                </ul>
+
+                <!-- CONTROL DE USUARIO, REGISTRO Y CARRO -->
+                <div class="d-flex align-items-center gap-2 flex-wrap">
+                    <!-- Botón Iniciar Sesión con cualquier cuenta -->
+                    <button class="btn btn-outline-light btn-sm fw-semibold" onclick="abrirModalLogin()">
+                        <i class="bi bi-box-arrow-in-right me-1"></i>Iniciar Sesión
+                    </button>
+
+                    <!-- Botón Crear Cuenta (Oculto para administradores de compañía, visible para Superusuario o cuando no hay sesión) -->
+                    <button id="btnNavCrearCuenta" class="btn btn-light btn-sm fw-bold shadow-sm text-primary" onclick="abrirModalRegistro()">
+                        <i class="bi bi-person-plus-fill me-1"></i>Crear Cuenta
+                    </button>
+
+                    <!-- Menú de Sesión Activa / Selector Rápido -->
+                    <div class="dropdown">
+                        <button class="btn btn-outline-light btn-sm dropdown-toggle fw-semibold shadow-sm" type="button" id="userMenuBtn" data-bs-toggle="dropdown">
+                            <i class="bi bi-person-circle me-1 text-warning"></i><span id="lblUsuarioActual">pasajero1</span>
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end shadow-lg" style="min-width: 290px;">
+                            <li class="px-3 py-2 bg-light border-bottom">
+                                <small class="text-muted d-block">Sesión Activa:</small>
+                                <strong class="text-primary" id="lblMenuDetalleUsuario">pasajero1</strong>
+                                <span class="badge bg-secondary ms-1" id="lblMenuDetalleRol">PASAJERO</span>
+                            </li>
+                            <li><a class="dropdown-item py-2 fw-semibold text-primary" href="javascript:void(0)" onclick="abrirModalLogin()"><i class="bi bi-key-fill me-2"></i>Ingresar con otra cuenta...</a></li>
+                            <li id="menuItemRegistrarCliente"><a class="dropdown-item py-2 fw-semibold text-success" href="javascript:void(0)" onclick="abrirModalRegistro()"><i class="bi bi-person-plus-fill me-2"></i>Registrar nuevo cliente</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><h6 class="dropdown-header text-uppercase fw-bold text-muted small"><i class="bi bi-people-fill me-1"></i>Cuentas Demo de Pasajero</h6></li>
+                            <li><a class="dropdown-item py-2" href="javascript:void(0)" onclick="cambiarUsuario('pasajero1', 'pasajero123', 'PASAJERO')"><i class="bi bi-person-check text-success me-2"></i>Pasajero 1 (Juan Pérez)</a></li>
+                            <li><a class="dropdown-item py-2" href="javascript:void(0)" onclick="cambiarUsuario('pasajero2', 'pasajero123', 'PASAJERO')"><i class="bi bi-person-check text-success me-2"></i>Pasajero 2 (María González)</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><h6 class="dropdown-header text-uppercase fw-bold text-primary small"><i class="bi bi-buildings me-1"></i>Administradores de Compañía (Tenant)</h6></li>
+                            <li><a class="dropdown-item py-2" href="javascript:void(0)" onclick="cambiarUsuario('admin_turbus', 'admin123', 'ADMIN_FLOTA', 'Turbus')"><span class="badge bg-success me-2">Turbus</span> Administrador Turbus</a></li>
+                            <li><a class="dropdown-item py-2" href="javascript:void(0)" onclick="cambiarUsuario('admin_pullman', 'admin123', 'ADMIN_FLOTA', 'Pullman Bus')"><span class="badge bg-warning text-dark me-2">Pullman</span> Administrador Pullman</a></li>
+                            <li><a class="dropdown-item py-2" href="javascript:void(0)" onclick="cambiarUsuario('admin_eme', 'admin123', 'ADMIN_FLOTA', 'EME Bus')"><span class="badge bg-primary me-2">EME Bus</span> Administrador EME</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><h6 class="dropdown-header text-uppercase fw-bold text-dark small"><i class="bi bi-shield-lock-fill text-danger me-1"></i>Superusuario del Sistema</h6></li>
+                            <li><a class="dropdown-item py-2 fw-bold text-dark" href="javascript:void(0)" onclick="cambiarUsuario('admin', 'admin123', 'ADMIN_FLOTA', 'Superusuario Global')"><i class="bi bi-shield-check text-danger me-2"></i>Superusuario (admin)</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item py-2 text-danger fw-semibold" href="javascript:void(0)" onclick="cerrarSesion()"><i class="bi bi-box-arrow-right me-2"></i>Cerrar Sesión</a></li>
+                        </ul>
+                    </div>
+
+                    <!-- Botón de Carro Persistente -->
+                    <button class="btn btn-warning fw-bold btn-sm position-relative px-3 shadow-sm" onclick="abrirModalCarro()">
+                        <i class="bi bi-cart3 me-1"></i> Carro
+                        <span id="badgeCarro" class="badge bg-danger rounded-pill ms-1">0</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- NOTIFICACIONES TOAST / ALERTAS -->
+    <div class="container mt-3">
+        <div id="alertaGlobal" class="alert alert-dismissible fade show d-none shadow-sm" role="alert">
+            <span id="alertaTexto"></span>
+            <button type="button" class="btn-close" onclick="cerrarAlerta()"></button>
+        </div>
+    </div>
+
+    <!-- CONTENIDO PRINCIPAL -->
+    <main class="container my-4">
+
+        <!-- HERO Y FILTRO DE BÚSQUEDA -->
+        <div class="card border-0 shadow-sm rounded-4 p-4 p-md-5 mb-4 text-white" style="background: linear-gradient(135deg, #1e3a8a, #0369a1);">
+            <div class="row align-items-center g-4">
+                <div class="col-lg-7">
+                    <span class="badge bg-warning text-dark px-3 py-1 rounded-pill fw-bold mb-2">Evaluación EVA-2 &bull; Multi-Tenancy</span>
+                    <h2 class="display-6 fw-bold mb-2">Encuentra y Reserva tu Pasaje</h2>
+                    <p class="mb-0 opacity-90">Explora itinerarios interurbanos, visualiza asientos en tiempo real y compra con persistencia en PostgreSQL.</p>
+                </div>
+                <div class="col-lg-5 text-lg-end">
+                    <div class="p-3 bg-white bg-opacity-10 rounded-3 text-start small border border-light border-opacity-25">
+                        <div class="fw-bold mb-1"><i class="bi bi-database-check me-1 text-warning"></i>Carrito Persistente PostgreSQL:</div>
+                        <div>Tus pasajes seleccionados permanecen guardados en la base de datos al cerrar sesión o ingresar con otro usuario.</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- FORMULARIO DE FILTROS (DJANGO-FILTER CON MULTI-TENANCY) -->
+            <div class="card bg-white text-dark rounded-4 p-3 p-md-4 mt-4 shadow">
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <label class="form-label small fw-bold text-muted mb-1"><i class="bi bi-geo-alt-fill text-danger me-1"></i>Origen</label>
+                        <select id="filtroOrigen" class="form-select">
+                            <option value="">Todas las ciudades</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label small fw-bold text-muted mb-1"><i class="bi bi-pin-map-fill text-success me-1"></i>Destino</label>
+                        <select id="filtroDestino" class="form-select">
+                            <option value="">Todas las ciudades</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label small fw-bold text-muted mb-1"><i class="bi bi-buildings-fill text-warning me-1"></i>Empresa (Tenant)</label>
+                        <select id="filtroEmpresa" class="form-select">
+                            <option value="">Todas las empresas</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label small fw-bold text-muted mb-1"><i class="bi bi-calendar-event text-primary me-1"></i>Fecha de Salida</label>
+                        <input type="date" id="filtroFecha" class="form-control">
+                    </div>
+                    <div class="col-md-2 d-flex align-items-end">
+                        <button class="btn btn-primary w-100 fw-bold py-2 shadow-sm" onclick="cargarServicios()">
+                            <i class="bi bi-search me-1"></i> Buscar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- LISTADO DE SERVICIOS ENCONTRADOS -->
+        <section id="seccion-viajes" class="mb-5">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h4 class="fw-bold mb-0 text-primary"><i class="bi bi-bus-front me-2"></i>Itinerarios Disponibles</h4>
+                <span id="conteoServicios" class="text-muted small">Cargando viajes...</span>
+            </div>
+
+            <div id="contenedorServicios" class="row g-4">
+                <!-- Se inyectan dinámicamente con JavaScript -->
+            </div>
+        </section>
+
+    </main>
+
+    <!-- MODAL 0: INICIAR SESIÓN MANUAL CON CUALQUIER CUENTA -->
+    <div class="modal fade" id="modalLogin" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content rounded-4 border-0 shadow-lg">
+                <div class="modal-header bg-dark text-white border-0 py-3">
+                    <h5 class="modal-title fw-bold">
+                        <i class="bi bi-box-arrow-in-right me-2 text-warning"></i>Iniciar Sesión
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <p class="small text-muted mb-3">
+                        Ingresa con las credenciales de tu <strong>cuenta de cliente creada</strong> o como <strong>administrador de compañía</strong>. Tu sesión y carrito se recuperarán directamente desde PostgreSQL.
+                    </p>
+                    <form id="formLoginManual" onsubmit="event.preventDefault(); iniciarSesionManual();">
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold"><i class="bi bi-person-fill text-primary me-1"></i>Nombre de Usuario</label>
+                            <input type="text" id="txtLoginUsername" class="form-control form-control-lg fs-6" placeholder="Ej: rodrigog o pasajero1" required autofocus>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold"><i class="bi bi-key-fill text-warning me-1"></i>Contraseña</label>
+                            <input type="password" id="txtLoginPassword" class="form-control form-control-lg fs-6" placeholder="Ingresa tu contraseña" required>
+                        </div>
+
+                        <div id="resultadoLogin" class="small mb-3"></div>
+
+                        <button type="submit" class="btn btn-primary btn-lg w-100 fw-bold py-2 shadow-sm" id="btnSubmitLogin">
+                            <i class="bi bi-box-arrow-in-right me-1"></i> Iniciar Sesión
+                        </button>
+                    </form>
+
+                    <div class="text-center mt-3 pt-3 border-top small">
+                        <span class="text-muted">¿Aún no tienes cuenta?</span> 
+                        <a href="javascript:void(0)" onclick="cambiarDeLoginARegistro()" class="fw-bold text-primary text-decoration-none ms-1">
+                            <i class="bi bi-person-plus-fill me-1"></i>Regístrate aquí
+                        </a>
+                    </div>
+
+                    <!-- ACCESOS RÁPIDOS DE PRUEBA -->
+                    <div class="mt-4 pt-3 border-top">
+                        <label class="form-label small fw-bold text-muted d-block text-center mb-2">
+                            <i class="bi bi-lightning-charge-fill text-warning me-1"></i>Accesos Rápidos Demo (1 Clic):
+                        </label>
+                        <div class="d-flex flex-wrap gap-2 justify-content-center">
+                            <button type="button" class="btn btn-sm btn-outline-success" onclick="llenarLoginRapido('pasajero1', 'pasajero123')">
+                                👤 Pasajero 1
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-success" onclick="llenarLoginRapido('pasajero2', 'pasajero123')">
+                                👤 Pasajero 2
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-primary" onclick="llenarLoginRapido('admin_turbus', 'admin123')">
+                                🟢 Turbus Admin
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-warning text-dark" onclick="llenarLoginRapido('admin_pullman', 'admin123')">
+                                🟠 Pullman Admin
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-info text-dark" onclick="llenarLoginRapido('admin_eme', 'admin123')">
+                                🔵 EME Bus Admin
+                            </button>
+                            <button type="button" class="btn btn-sm btn-dark fw-bold" onclick="llenarLoginRapido('admin', 'admin123')">
+                                🛡️ Superusuario (admin)
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 1: REGISTRO DE CUENTA DE CLIENTE -->
+    <div class="modal fade" id="modalRegistro" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content rounded-4 border-0 shadow-lg">
+                <div class="modal-header bg-primary text-white border-0 py-3">
+                    <h5 class="modal-title fw-bold">
+                        <i class="bi bi-person-plus-fill me-2"></i>Crear Cuenta de Cliente (Pasajero)
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <p class="small text-muted mb-3">
+                        Regístrate como nuevo pasajero para comprar pasajes y acceder al <strong>carrito persistente</strong> vinculado a tu usuario en PostgreSQL.
+                    </p>
+                    <form id="formRegistroCliente" onsubmit="event.preventDefault(); registrarCliente();">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold">Nombre de Usuario *</label>
+                                <input type="text" id="regUsername" class="form-control" placeholder="Ej: rodrigog" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold">Contraseña *</label>
+                                <input type="password" id="regPassword" class="form-control" placeholder="Mínimo 6 caracteres" minlength="6" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold">Nombre *</label>
+                                <input type="text" id="regFirstName" class="form-control" placeholder="Ej: Rodrigo" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold">Apellidos *</label>
+                                <input type="text" id="regLastName" class="form-control" placeholder="Ej: Gallardo" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold">RUT / Pasaporte *</label>
+                                <input type="text" id="regRut" class="form-control" placeholder="Ej: 19.876.543-2" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold">Correo Electrónico</label>
+                                <input type="email" id="regEmail" class="form-control" placeholder="correo@ejemplo.cl">
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label small fw-bold">Teléfono de Contacto</label>
+                                <input type="tel" id="regTelefono" class="form-control" placeholder="+56911223344">
+                            </div>
+                        </div>
+                        <div id="resultadoRegistro" class="small mt-3"></div>
+                        <div class="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
+                            <button type="button" class="btn btn-secondary fw-semibold" data-bs-dismiss="modal">Cancelar</button>
+                            <button type="submit" class="btn btn-primary fw-bold px-4" id="btnSubmitRegistro">
+                                <i class="bi bi-check-circle-fill me-1"></i> Registrar e Iniciar Sesión
+                            </button>
+                        </div>
+                        <div class="text-center mt-3 pt-2 border-top small">
+                            <span class="text-muted">¿Ya tienes una cuenta creada?</span> 
+                            <a href="javascript:void(0)" onclick="cambiarDeRegistroALogin()" class="fw-bold text-primary text-decoration-none ms-1">
+                                <i class="bi bi-box-arrow-in-right me-1"></i>Inicia sesión aquí
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 2: PANEL DE ADMINISTRADOR DE COMPAÑÍA (TENANT DASHBOARD) -->
+    <div class="modal fade" id="modalEmpresa" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content rounded-4 border-0 shadow-lg">
+                <div class="modal-header text-white border-0 py-3" id="headerModalEmpresa" style="background: linear-gradient(135deg, #1e3a8a, #0284c7);">
+                    <div class="d-flex align-items-center gap-3 w-100 justify-content-between pe-3">
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="fs-4">🏢</span>
+                            <div>
+                                <h5 class="modal-title fw-bold mb-0" id="lblEmpresaModalNombre">Panel de Compañía de Viaje</h5>
+                                <small class="opacity-75" id="lblEmpresaModalRut">Multi-Tenancy &bull; Supervisión de Flota y Movimientos</small>
+                            </div>
+                        </div>
+                        <div class="d-flex align-items-center gap-2">
+                            <label class="small text-white fw-bold mb-0 d-none d-md-inline">Cambiar Tenant:</label>
+                            <select id="selEmpresaModalSelector" class="form-select form-select-sm" style="max-width: 180px;" onchange="cambiarEmpresaPanel(this.value)">
+                                <!-- Opciones inyectadas por JS -->
+                            </select>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-body p-4 bg-light">
+                    <!-- KPIs DE LA EMPRESA -->
+                    <div class="row g-3 mb-4 text-center">
+                        <div class="col-6 col-md-2">
+                            <div class="kpi-card shadow-sm">
+                                <div class="text-muted small fw-bold">Flota Total</div>
+                                <h3 class="fw-bold text-primary mb-0" id="kpiTotalBuses">0</h3>
+                                <small class="text-muted" style="font-size: 0.75rem;">Máquinas</small>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-2">
+                            <div class="kpi-card shadow-sm">
+                                <div class="text-muted small fw-bold">En Ruta</div>
+                                <h3 class="fw-bold text-info mb-0" id="kpiBusesEnRuta">0</h3>
+                                <small class="text-info fw-semibold" style="font-size: 0.75rem;">Ocupadas</small>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-2">
+                            <div class="kpi-card shadow-sm">
+                                <div class="text-muted small fw-bold">Disponibles</div>
+                                <h3 class="fw-bold text-success mb-0" id="kpiBusesDisponibles">0</h3>
+                                <small class="text-success fw-semibold" style="font-size: 0.75rem;">En Terminal</small>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-2">
+                            <div class="kpi-card shadow-sm">
+                                <div class="text-muted small fw-bold">En Taller</div>
+                                <h3 class="fw-bold text-warning mb-0" id="kpiBusesMantenimiento">0</h3>
+                                <small class="text-warning fw-semibold" style="font-size: 0.75rem;">Mantenimiento</small>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-2">
+                            <div class="kpi-card shadow-sm">
+                                <div class="text-muted small fw-bold">Boletos Vendidos</div>
+                                <h3 class="fw-bold text-dark mb-0" id="kpiBoletosVendidos">0</h3>
+                                <small class="text-muted" style="font-size: 0.75rem;">Pasajes</small>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-2">
+                            <div class="kpi-card shadow-sm">
+                                <div class="text-muted small fw-bold">Recaudación</div>
+                                <h4 class="fw-bold text-success mb-0" id="kpiTotalRecaudado">$0</h4>
+                                <small class="text-muted" style="font-size: 0.75rem;">CLP Total</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- PESTAÑAS DEL PANEL -->
+                    <ul class="nav nav-pills nav-fill bg-white p-2 rounded-3 shadow-sm mb-4" id="pillsTabEmpresa" role="tablist">
+                        <li class="nav-item">
+                            <button class="nav-link active fw-bold" id="tab-maquinas-btn" data-bs-toggle="pill" data-bs-target="#tab-maquinas">
+                                <i class="bi bi-bus-front-fill me-1"></i> Flota de Máquinas (Buses)
+                            </button>
+                        </li>
+                        <li class="nav-item">
+                            <button class="nav-link fw-bold" id="tab-servicios-btn" data-bs-toggle="pill" data-bs-target="#tab-servicios">
+                                <i class="bi bi-grid-3x3-gap-fill me-1"></i> Movimiento de Asientos e Itinerarios
+                            </button>
+                        </li>
+                    </ul>
+
+                    <div class="tab-content">
+                        <!-- TAB 1: FLOTA DE MÁQUINAS -->
+                        <div class="tab-pane fade show active" id="tab-maquinas">
+                            <div class="card border-0 shadow-sm rounded-4 p-3 bg-white">
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <h6 class="fw-bold text-primary mb-0"><i class="bi bi-speedometer2 me-1"></i>Estado Operativo de las Máquinas de la Compañía</h6>
+                                    <small class="text-muted">Cambios con persistencia inmediata en PostgreSQL</small>
+                                </div>
+                                <div class="table-responsive">
+                                    <table class="table table-hover align-middle mb-0">
+                                        <thead class="table-light small">
+                                            <tr>
+                                                <th>Patente</th>
+                                                <th>Modelo / Marca</th>
+                                                <th>Capacidad</th>
+                                                <th>Estado Operativo (Choice)</th>
+                                                <th>Servicio Asignado</th>
+                                                <th class="text-end">Acción de Flota</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="tablaBusesEmpresa">
+                                            <!-- Inyectado por JS -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- TAB 2: SERVICIOS Y ASIENTOS -->
+                        <div class="tab-pane fade" id="tab-servicios">
+                            <div class="card border-0 shadow-sm rounded-4 p-3 bg-white">
+                                <h6 class="fw-bold text-primary mb-3"><i class="bi bi-ticket-detailed-fill me-1"></i>Ocupación de Asientos y Pasajeros por Itinerario</h6>
+                                <div id="listaServiciosEmpresa">
+                                    <!-- Inyectado por JS -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 3: SELECCIÓN DE ASIENTOS Y PASAJERO -->
+    <div class="modal fade" id="modalAsientos" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content rounded-4 border-0 shadow">
+                <div class="modal-header bg-primary text-white border-0 py-3">
+                    <h5 class="modal-title fw-bold" id="modalAsientosTitulo">
+                        <i class="bi bi-grid-3x3-gap-fill me-2"></i>Selección de Asientos
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <!-- Resumen del viaje -->
+                    <div class="alert alert-light border rounded-3 p-3 mb-3">
+                        <div class="row text-center g-2 small">
+                            <div class="col-4"><strong>Ruta:</strong> <span id="lblModalRuta">-</span></div>
+                            <div class="col-4"><strong>Salida:</strong> <span id="lblModalSalida">-</span></div>
+                            <div class="col-4"><strong>Bus:</strong> <span id="lblModalBus">-</span></div>
+                        </div>
+                    </div>
+
+                    <!-- BARRA DE SELECCIÓN RÁPIDA / EN LOTE -->
+                    <div class="card bg-light border rounded-3 p-3 mb-3">
+                        <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="badge bg-primary fs-6 px-3 py-2 shadow-sm" id="badgeTotalSeleccionados">
+                                    <i class="bi bi-check2-circle me-1"></i>0 seleccionados
+                                </span>
+                                <span class="small text-muted fw-semibold" id="lblTotalDisponiblesBus">
+                                    Disponibles: 0
+                                </span>
+                            </div>
+                            <div class="d-flex flex-wrap align-items-center gap-2">
+                                <div class="input-group input-group-sm" style="max-width: 175px;">
+                                    <span class="input-group-text fw-bold">Elegir N:</span>
+                                    <input type="number" id="numAsientosRapidos" class="form-control text-center" min="1" max="60" value="1" placeholder="Ej: 5">
+                                    <button class="btn btn-primary fw-semibold" type="button" onclick="seleccionarNAsientos()" title="Seleccionar esta cantidad de asientos libres">
+                                        Elegir
+                                    </button>
+                                </div>
+                                <button type="button" class="btn btn-sm btn-outline-success fw-bold shadow-sm" onclick="seleccionarTodosLosAsientos()">
+                                    <i class="bi bi-grid-fill me-1"></i>Seleccionar Todos
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="limpiarSeleccionAsientos()">
+                                    <i class="bi bi-x-circle me-1"></i>Limpiar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Leyenda -->
+                    <div class="d-flex justify-content-center gap-4 mb-4 small">
+                        <div class="d-flex align-items-center gap-1"><span class="badge seat-free px-2 py-1">#</span> Libre</div>
+                        <div class="d-flex align-items-center gap-1"><span class="badge seat-selected px-2 py-1">#</span> Seleccionado (Clic para desmarcar)</div>
+                        <div class="d-flex align-items-center gap-1"><span class="badge seat-taken px-2 py-1">#</span> Ocupado</div>
+                    </div>
+
+                    <!-- Diagrama del Bus -->
+                    <div class="bus-diagram">
+                        <div class="bus-floor-title">PISO 1 &bull; ASIENTOS CAMA</div>
+                        <div id="gridPiso1" class="seat-grid mb-4">
+                            <!-- Inyectado por JS -->
+                        </div>
+
+                        <div class="bus-floor-title">PISO 2 &bull; ASIENTOS SEMICAMA</div>
+                        <div id="gridPiso2" class="seat-grid">
+                            <!-- Inyectado por JS -->
+                        </div>
+                    </div>
+
+                    <!-- Formulario del Pasajero Seleccionado -->
+                    <div id="seccionFormPasajero" class="mt-4 p-3 bg-light rounded-4 border d-none shadow-sm">
+                        <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+                            <h6 class="fw-bold text-primary mb-0">
+                                <i class="bi bi-person-fill-check me-1"></i>Datos de Ocupantes para <span id="lblAsientosSeleccionadosTexto">0 asientos</span>
+                            </h6>
+                            <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25" id="lblDetalleAsientosSeleccionados">Asientos: Ninguno</span>
+                        </div>
+                        <p class="small text-muted mb-3">
+                            Ingresa los datos del comprador o pasajero. Puedes aplicar los mismos datos para todos los asientos seleccionados o personalizarlos individualmente.
+                        </p>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold">Nombre Completo Pasajero Titular *</label>
+                                <input type="text" id="txtNombrePasajero" class="form-control" placeholder="Ej: Rodrigo Gallardo">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold">RUT / Pasaporte *</label>
+                                <input type="text" id="txtRutPasajero" class="form-control" placeholder="Ej: 19.876.543-2">
+                            </div>
+                            <div class="col-12">
+                                <div class="form-check form-switch small">
+                                    <input class="form-check-input" type="checkbox" id="chkMismoPasajero" checked onchange="toggleDetallePasajeros()">
+                                    <label class="form-check-label fw-semibold" for="chkMismoPasajero">
+                                        Asignar automáticamente estos datos a todos los asientos seleccionados (se enumerarán como Pasajero 1, Pasajero 2, etc.)
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Contenedor opcional para individualizar cada asiento -->
+                        <div id="contenedorPasajerosDetallados" class="d-none mt-3 pt-3 border-top">
+                            <!-- Inyectado dinámicamente -->
+                        </div>
+
+                        <div class="d-flex justify-content-between align-items-center mt-3 pt-3 border-top flex-wrap gap-2">
+                            <div>
+                                <span class="text-muted small">Total Asientos Seleccionados:</span>
+                                <span id="lblPrecioAsiento" class="fs-4 fw-bold text-success ms-1">$0</span>
+                            </div>
+                            <button class="btn btn-success btn-lg fw-bold px-4 shadow" id="btnAgregarAlCarroBulk" onclick="agregarSeleccionadosAlCarro()">
+                                <i class="bi bi-cart-plus-fill me-1"></i> <span id="btnAgregarTexto">Agregar Asientos al Carro</span>
+                            </button>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 4: CARRO DE PASAJES PERSISTENTE (CON CHOICES DE PAGO Y DETECCIÓN DE CONFLICTOS) -->
+    <div class="modal fade" id="modalCarro" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content rounded-4 border-0 shadow">
+                <div class="modal-header bg-dark text-white border-0 py-3">
+                    <h5 class="modal-title fw-bold">
+                        <i class="bi bi-cart3 me-2"></i>Carro de Pasajes Persistente (PostgreSQL)
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="alert alert-success py-2 small mb-3 d-flex align-items-center gap-2">
+                        <i class="bi bi-database-check fs-4"></i>
+                        <div>
+                            <strong>Persistencia en Base de Datos Garantizada:</strong>
+                            Los pasajes agregados están vinculados a tu usuario en PostgreSQL. Puedes cerrar sesión o cambiar de dispositivo sin perder tu selección.
+                        </div>
+                    </div>
+
+                    <!-- ALERTA DE ASIENTOS AGOTADOS / CONFLICTO DE CONCURRENCIA -->
+                    <div id="alertaAsientosAgotadosCarro" class="alert alert-danger border-danger p-3 mb-3 d-none shadow-sm">
+                        <div class="d-flex align-items-start gap-3">
+                            <i class="bi bi-exclamation-triangle-fill fs-3 text-danger"></i>
+                            <div class="w-100">
+                                <h6 class="fw-bold mb-1 text-danger">¡Atención! Inventario insuficiente para algunos pasajes</h6>
+                                <p class="small mb-2" id="txtMensajeAgotados">
+                                    Uno o más asientos guardados en tu carrito ya fueron adquiridos por otro cliente (o la capacidad total del bus se vendió). Para poder procesar tu pago, debes remover los asientos no disponibles.
+                                </p>
+                                <button type="button" class="btn btn-danger btn-sm fw-bold shadow-sm" onclick="ejecutarLimpiarAgotados()">
+                                    <i class="bi bi-trash3-fill me-1"></i> Quitar Asientos Agotados del Carrito
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="listaItemsCarro" class="mb-4">
+                        <!-- Inyectado por JS -->
+                    </div>
+
+                    <!-- SELECCIÓN DE MÉTODO DE PAGO (CHOICES EN ORDEN DE COMPRA) -->
+                    <div class="p-3 bg-white rounded-3 border mb-3">
+                        <label class="form-label small fw-bold text-primary mb-2">
+                            <i class="bi bi-wallet2 me-1"></i>Selecciona Método de Pago (Choices):
+                        </label>
+                        <select id="selMetodoPago" class="form-select fw-semibold">
+                            <option value="WEBPAY">💳 Webpay Plus / Tarjeta Débito - Crédito</option>
+                            <option value="TRANSFERENCIA">🏦 Transferencia Bancaria Electrónica</option>
+                            <option value="BANCO_ESTADO">🔴 CuentaRUT / BancoEstado</option>
+                            <option value="EFECTIVO">💵 Pago en Efectivo (Boletería de Terminal)</option>
+                        </select>
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center p-3 bg-light rounded-3 border">
+                        <div>
+                            <div class="text-muted small">Total a Pagar (CLP):</div>
+                            <h3 id="lblTotalCarro" class="fw-bold text-success mb-0">$0</h3>
+                        </div>
+                        <button id="btnPagarCheckout" class="btn btn-success btn-lg fw-bold px-4 shadow" onclick="ejecutarCheckout()">
+                            <i class="bi bi-credit-card-fill me-2"></i> Pagar y Emitir Boletos
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 5: COMPROBANTE DE COMPRA Y BOLETOS (UUID) -->
+    <div class="modal fade" id="modalBoletos" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content rounded-4 border-0 shadow">
+                <div class="modal-header bg-success text-white border-0 py-3">
+                    <h5 class="modal-title fw-bold">
+                        <i class="bi bi-check-circle-fill me-2"></i>Boletos de Viaje Emitidos
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div id="contenedorBoletos">
+                        <!-- Inyectado por JS -->
+                    </div>
+                </div>
+                <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-secondary px-4 fw-semibold" data-bs-dismiss="modal">Cerrar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 6: GESTOR DE FLOTA / REVERSIÓN DE STOCK -->
+    <div class="modal fade" id="modalAdmin" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content rounded-4 border-0 shadow">
+                <div class="modal-header bg-danger text-white border-0 py-3">
+                    <h5 class="modal-title fw-bold">
+                        <i class="bi bi-shield-lock-fill me-2"></i>Gestor de Flota: Reversión de Inventario
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <p class="small text-muted mb-3">
+                        Prueba en vivo la <strong>Reversión Automática de Inventario</strong>: Al cambiar una orden a <code>CANCELADO</code>, los asientos reservados quedan liberados automáticamente en el catálogo para nuevos clientes.
+                    </p>
+                    <div class="input-group mb-3">
+                        <span class="input-group-text fw-bold">ID de Orden:</span>
+                        <input type="number" id="txtAdminOrdenId" class="form-control" placeholder="Ej: 1">
+                        <select id="selAdminNuevoEstado" class="form-select">
+                            <option value="CANCELADO">CANCELADO (Libera Asientos)</option>
+                            <option value="COMPLETADO">COMPLETADO</option>
+                            <option value="PAGADO">PAGADO</option>
+                        </select>
+                        <button class="btn btn-danger fw-bold" onclick="ejecutarCambioEstadoOrden()">
+                            Actualizar Estado
+                        </button>
+                    </div>
+                    <div id="resultadoAdmin" class="small mt-2"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- PIE DE PÁGINA (DATOS OBLIGATORIOS DEL ALUMNO) -->
+    <footer>
+        <div class="container text-center">
+            <div class="row align-items-center g-3">
+                <div class="col-md-4 text-md-start">
+                    <p class="mb-0 fw-semibold">Asignatura: <span class="text-info">Desarrollo Backend (EVA-2)</span></p>
+                    <small class="text-secondary">Proyecto 4 - Reservas de Pasajes de Buses Interurbanos</small>
+                </div>
+                <div class="col-md-4">
+                    <h5 class="mb-2 text-info">DATOS DEL ESTUDIANTE</h5>
+                    <div class="d-inline-block bg-primary px-3 py-1 rounded-pill text-white fw-bold fs-6 mb-1 shadow-sm">
+                        Alumno: Rodrigo Gallardo
+                    </div>
+                    <p class="mb-0 small text-light mt-1">
+                        <strong>Sección:</strong> <span class="badge bg-dark border border-secondary">AP-N4-C2(E-F)/D</span> &bull; 
+                        <strong>Año:</strong> <span class="badge bg-dark border border-secondary">2026</span>
+                    </p>
+                </div>
+                <div class="col-md-4 text-md-end">
+                    <span class="badge bg-secondary">Versión 2.0.0 &bull; Multi-Tenant</span>
+                    <p class="small text-secondary mb-0 mt-1">&copy; 2026 - Todos los derechos reservados.</p>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Bootstrap 5 JS Bundle -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- LÓGICA JAVASCRIPT FRONTEND CONECTADA A LA API REST -->
+    <script>
+        // ESTADO GLOBAL DE LA APLICACIÓN Y PERSISTENCIA DE SESIÓN
+        function getSavedCredentials() {
+            const user = localStorage.getItem('buses_auth_username') || 'pasajero1';
+            const pass = localStorage.getItem('buses_auth_password') || 'pasajero123';
+            return { user, pass };
+        }
+
+        function setSavedCredentials(username, password) {
+            localStorage.setItem('buses_auth_username', username);
+            localStorage.setItem('buses_auth_password', password);
+        }
+
+        function clearSavedCredentials() {
+            localStorage.removeItem('buses_auth_username');
+            localStorage.removeItem('buses_auth_password');
+        }
+
+        let currentUser = 'pasajero1';
+        let currentPass = 'pasajero123';
+        let currentRole = 'PASAJERO';
+        let currentTenantId = null;
+        let currentTenantNombre = null;
+        let isSuperUser = false;
+        let isStaff = false;
+        let authToken = null;
+        let servicioSeleccionado = null;
+        let asientosBusActuales = [];
+        let asientosSeleccionados = [];
+        let empresasDisponibles = [];
+        let empresaPanelActivaId = null;
+
+        // INICIALIZACIÓN AL CARGAR LA PÁGINA (RECUPERA CUENTA CREADA O POR DEFECTO)
+        document.addEventListener('DOMContentLoaded', async () => {
+            const creds = getSavedCredentials();
+            currentUser = creds.user;
+            currentPass = creds.pass;
+
+            await autenticarUsuario(currentUser, currentPass);
+            await cargarCiudadesYEmpresasFiltros();
+            await cargarServicios();
+            await actualizarCarro();
+        });
+
+        // 1. AUTENTICACIÓN JWT CON CLAIMS DE TENANT Y PERSISTENCIA
+        async function autenticarUsuario(username, password) {
+            try {
+                const res = await fetch('/api/token/', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ username, password })
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    authToken = data.access;
+                    currentUser = username;
+                    currentPass = password;
+                    currentRole = data.role;
+                    currentTenantId = data.tenant_id || null;
+                    currentTenantNombre = data.tenant_nombre || null;
+                    isSuperUser = Boolean(data.is_superuser) || (username === 'admin');
+                    isStaff = Boolean(data.is_staff);
+
+                    // Persistir credenciales en el navegador para que no se pierdan al recargar
+                    setSavedCredentials(username, password);
+
+                    const tenantBadge = currentTenantNombre ? ` [${currentTenantNombre}]` : '';
+                    document.getElementById('lblUsuarioActual').innerText = `${username}${tenantBadge}`;
+
+                    const lblDetalle = document.getElementById('lblMenuDetalleUsuario');
+                    if (lblDetalle) lblDetalle.innerText = username;
+                    const lblRol = document.getElementById('lblMenuDetalleRol');
+                    if (lblRol) lblRol.innerText = data.role + (currentTenantNombre ? ` &bull; ${currentTenantNombre}` : '');
+
+                    // Actualizar visibilidad de elementos según el rol (Superusuario vs Admin Compañía vs Pasajero)
+                    actualizarUIPorRol(currentRole, isStaff, isSuperUser);
+
+                    return true;
+                }
+            } catch (err) {
+                console.error("Error autenticando:", err);
+            }
+            return false;
+        }
+
+        // CONTROL DE VISIBILIDAD BASADO EN ROLES (RBAC FRONTEND)
+        function actualizarUIPorRol(rol, isStaffMember = false, isSuper = false) {
+            const esSuperuser = Boolean(isSuper) || (currentUser === 'admin');
+            const esAdminCompania = (rol === 'ADMIN_FLOTA' || rol === 'ADMIN' || rol === 'ADMINISTRADOR' || isStaffMember) && !esSuperuser;
+            const esPasajero = (rol === 'PASAJERO');
+
+            // 1. Elementos de Compañía / Flota (Panel de Compañía y Gestor Flota)
+            // Visibles para Administradores de Compañía Y para el Superusuario
+            const itemsTenantAdmin = document.querySelectorAll('.item-tenant-admin');
+            itemsTenantAdmin.forEach(el => {
+                if (esSuperuser || esAdminCompania) {
+                    el.classList.remove('d-none');
+                } else {
+                    el.classList.add('d-none');
+                }
+            });
+
+            // 2. Elementos EXCLUSIVOS del Superusuario (Swagger y Admin de Django)
+            // Solo visibles para el Superusuario global
+            const itemsSuperuser = document.querySelectorAll('.item-superuser-only');
+            itemsSuperuser.forEach(el => {
+                if (esSuperuser) {
+                    el.classList.remove('d-none');
+                } else {
+                    el.classList.add('d-none');
+                }
+            });
+
+            // 3. Botón "Crear Cuenta" y opción "Registrar nuevo cliente":
+            // Oculto para administradores de compañía (Turbus, Pullman, EME).
+            // Visible para el Superusuario (para registrar usuarios) o si no hay sesión iniciada.
+            const btnCrearCuenta = document.getElementById('btnNavCrearCuenta');
+            const menuRegistrar = document.getElementById('menuItemRegistrarCliente');
+
+            if (esAdminCompania) {
+                if (btnCrearCuenta) btnCrearCuenta.classList.add('d-none');
+                if (menuRegistrar) menuRegistrar.classList.add('d-none');
+            } else if (esSuperuser) {
+                if (btnCrearCuenta) btnCrearCuenta.classList.remove('d-none');
+                if (menuRegistrar) menuRegistrar.classList.remove('d-none');
+            } else if (esPasajero) {
+                if (btnCrearCuenta) btnCrearCuenta.classList.add('d-none');
+                if (menuRegistrar) menuRegistrar.classList.remove('d-none');
+            } else {
+                if (btnCrearCuenta) btnCrearCuenta.classList.remove('d-none');
+                if (menuRegistrar) menuRegistrar.classList.remove('d-none');
+            }
+
+            // 4. Nombre dinámico del Panel de Compañía
+            const linkPanel = document.getElementById('navLinkPanelEmpresa');
+            if (linkPanel) {
+                if (currentTenantNombre) {
+                    linkPanel.innerHTML = `<i class="bi bi-buildings-fill me-1"></i>Panel ${currentTenantNombre}`;
+                } else {
+                    linkPanel.innerHTML = `<i class="bi bi-buildings-fill me-1"></i>Panel de Compañía`;
+                }
+            }
+        }
+
+        // CONTROL DEL MODAL DE INICIO DE SESIÓN
+        function abrirModalLogin() {
+            document.getElementById('formLoginManual').reset();
+            document.getElementById('resultadoLogin').innerHTML = '';
+            if (currentUser && currentUser !== 'pasajero1') {
+                document.getElementById('txtLoginUsername').value = currentUser;
+            }
+            const modal = new bootstrap.Modal(document.getElementById('modalLogin'));
+            modal.show();
+        }
+
+        function cambiarDeLoginARegistro() {
+            const modalLogin = bootstrap.Modal.getInstance(document.getElementById('modalLogin'));
+            if (modalLogin) modalLogin.hide();
+            abrirModalRegistro();
+        }
+
+        function cambiarDeRegistroALogin() {
+            const modalReg = bootstrap.Modal.getInstance(document.getElementById('modalRegistro'));
+            if (modalReg) modalReg.hide();
+            abrirModalLogin();
+        }
+
+        function llenarLoginRapido(user, pass) {
+            document.getElementById('txtLoginUsername').value = user;
+            document.getElementById('txtLoginPassword').value = pass;
+            iniciarSesionManual();
+        }
+
+        async function iniciarSesionManual() {
+            const username = document.getElementById('txtLoginUsername').value.trim();
+            const password = document.getElementById('txtLoginPassword').value;
+            const resDiv = document.getElementById('resultadoLogin');
+            const btnSubmit = document.getElementById('btnSubmitLogin');
+
+            if (!username || !password) {
+                resDiv.innerHTML = '<span class="text-danger fw-bold"><i class="bi bi-exclamation-triangle me-1"></i>Ingresa tu usuario y contraseña.</span>';
+                return;
+            }
+
+            resDiv.innerHTML = '<span class="text-muted"><span class="spinner-border spinner-border-sm me-1"></span> Validando credenciales en PostgreSQL...</span>';
+            btnSubmit.disabled = true;
+
+            const ok = await autenticarUsuario(username, password);
+            btnSubmit.disabled = false;
+
+            if (ok) {
+                resDiv.innerHTML = '<span class="text-success fw-bold"><i class="bi bi-check-circle-fill me-1"></i>¡Sesión iniciada correctamente!</span>';
+                setTimeout(async () => {
+                    bootstrap.Modal.getInstance(document.getElementById('modalLogin')).hide();
+                    mostrarAlerta(`¡Bienvenido/a de nuevo, ${username}! Tu sesión y carrito están activos en PostgreSQL.`, 'success');
+                    await actualizarCarro(true);
+                }, 600);
+            } else {
+                resDiv.innerHTML = '<span class="text-danger fw-bold"><i class="bi bi-x-circle-fill me-1"></i>Credenciales inválidas. Verifica tu nombre de usuario y contraseña.</span>';
+            }
+        }
+
+        function cerrarSesion() {
+            clearSavedCredentials();
+            authToken = null;
+            currentUser = null;
+            currentPass = null;
+            currentRole = null;
+            currentTenantId = null;
+            currentTenantNombre = null;
+            isSuperUser = false;
+            isStaff = false;
+
+            document.getElementById('lblUsuarioActual').innerText = 'No autenticado';
+            const lblDetalle = document.getElementById('lblMenuDetalleUsuario');
+            if (lblDetalle) lblDetalle.innerText = 'Desconectado';
+            const lblRol = document.getElementById('lblMenuDetalleRol');
+            if (lblRol) lblRol.innerText = 'Ninguno';
+            document.getElementById('badgeCarro').innerText = '0';
+            document.getElementById('lblTotalCarro').innerText = '$0';
+
+            // Ocultar botones de administración al cerrar sesión
+            actualizarUIPorRol(null, false, false);
+
+            mostrarAlerta('Has cerrado tu sesión. Puedes ingresar con cualquier cuenta registrada o como administrador.', 'info');
+            abrirModalLogin();
+        }
+
+        async function cambiarUsuario(username, pass, rol, tenantNombre = null) {
+            const ok = await autenticarUsuario(username, pass);
+            if (ok) {
+                const tenantMsg = tenantNombre ? ` para ${tenantNombre}` : '';
+                mostrarAlerta(`Sesión iniciada como ${username} (${rol})${tenantMsg}.`, 'success');
+                await actualizarCarro(true);
+            } else {
+                mostrarAlerta(`Error al iniciar sesión con ${username}`, 'danger');
+            }
+        }
+
+        // 2. CREAR CUENTA DE CLIENTE (REGISTRO PÚBLICO)
+        function abrirModalRegistro() {
+            if (currentRole && currentRole !== 'PASAJERO' && !isSuperUser) {
+                mostrarAlerta('La creación de usuarios está reservada exclusivamente para el Superusuario del sistema.', 'warning');
+                return;
+            }
+            document.getElementById('formRegistroCliente').reset();
+            document.getElementById('resultadoRegistro').innerHTML = '';
+            const modal = new bootstrap.Modal(document.getElementById('modalRegistro'));
+            modal.show();
+        }
+
+        async function registrarCliente() {
+            const username = document.getElementById('regUsername').value.trim();
+            const password = document.getElementById('regPassword').value;
+            const first_name = document.getElementById('regFirstName').value.trim();
+            const last_name = document.getElementById('regLastName').value.trim();
+            const rut = document.getElementById('regRut').value.trim();
+            const email = document.getElementById('regEmail').value.trim();
+            const telefono = document.getElementById('regTelefono').value.trim();
+            const resDiv = document.getElementById('resultadoRegistro');
+            const btnSubmit = document.getElementById('btnSubmitRegistro');
+
+            resDiv.innerHTML = '<span class="text-muted"><span class="spinner-border spinner-border-sm me-1"></span> Creando tu cuenta e inicializando carro en PostgreSQL...</span>';
+            btnSubmit.disabled = true;
+
+            try {
+                const res = await fetch('/api/registro/', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        username,
+                        password,
+                        first_name,
+                        last_name,
+                        rut,
+                        email,
+                        telefono,
+                        rol: 'PASAJERO'
+                    })
+                });
+
+                const data = await res.json();
+                btnSubmit.disabled = false;
+
+                if (res.ok) {
+                    resDiv.innerHTML = '<span class="text-success fw-bold"><i class="bi bi-check-circle-fill me-1"></i>¡Cuenta creada exitosamente! Iniciando tu sesión...</span>';
+                    setTimeout(async () => {
+                        bootstrap.Modal.getInstance(document.getElementById('modalRegistro')).hide();
+                        await autenticarUsuario(username, password);
+                        mostrarAlerta(`¡Bienvenido/a ${first_name}! Tu cuenta '${username}' ha sido creada e iniciada exitosamente.`, 'success');
+                        await actualizarCarro(true);
+                    }, 800);
+                } else {
+                    resDiv.innerHTML = `<span class="text-danger fw-bold"><i class="bi bi-exclamation-octagon me-1"></i>Error: ${JSON.stringify(data)}</span>`;
+                }
+            } catch (err) {
+                btnSubmit.disabled = false;
+                resDiv.innerHTML = '<span class="text-danger">Error de conexión con el servidor.</span>';
+            }
+        }
+
+        // 3. CARGAR CIUDADES Y EMPRESAS (TENANTS) PARA FILTROS
+        async function cargarCiudadesYEmpresasFiltros() {
+            try {
+                // Ciudades
+                const res = await fetch('/api/ciudades/');
+                if (res.ok) {
+                    const data = await res.json();
+                    const ciudades = data.results || data;
+                    const selOrig = document.getElementById('filtroOrigen');
+                    const selDest = document.getElementById('filtroDestino');
+
+                    ciudades.forEach(c => {
+                        selOrig.innerHTML += `<option value="${c.id}">${c.nombre} (${c.terminal})</option>`;
+                        selDest.innerHTML += `<option value="${c.id}">${c.nombre} (${c.terminal})</option>`;
+                    });
+                }
+
+                // Empresas / Tenants
+                const resEmp = await fetch('/api/empresas/');
+                if (resEmp.ok) {
+                    const dataEmp = await resEmp.json();
+                    empresasDisponibles = dataEmp.results || dataEmp;
+                    const selEmp = document.getElementById('filtroEmpresa');
+                    const selModalEmp = document.getElementById('selEmpresaModalSelector');
+
+                    selEmp.innerHTML = '<option value="">Todas las empresas</option>';
+                    selModalEmp.innerHTML = '';
+
+                    empresasDisponibles.forEach(e => {
+                        selEmp.innerHTML += `<option value="${e.id}">${e.nombre}</option>`;
+                        selModalEmp.innerHTML += `<option value="${e.id}">${e.nombre}</option>`;
+                    });
+
+                    if (empresasDisponibles.length > 0) {
+                        empresaPanelActivaId = empresasDisponibles[0].id;
+                    }
+                }
+            } catch (e) {
+                console.error("Error cargando filtros:", e);
+            }
+        }
+
+        // 4. CARGAR SERVICIOS DISPONIBLES (DJANGO-FILTER)
+        async function cargarServicios() {
+            const orig = document.getElementById('filtroOrigen').value;
+            const dest = document.getElementById('filtroDestino').value;
+            const emp = document.getElementById('filtroEmpresa').value;
+            const fecha = document.getElementById('filtroFecha').value;
+
+            let url = '/api/servicios/buscar/?';
+            if (orig) url += `origen=${orig}&`;
+            if (dest) url += `destino=${dest}&`;
+            if (emp) url += `empresa=${emp}&`;
+            if (fecha) url += `fecha_salida=${fecha}&`;
+
+            const contenedor = document.getElementById('contenedorServicios');
+            contenedor.innerHTML = '<div class="col-12 text-center py-5"><div class="spinner-border text-primary"></div></div>';
+
+            try {
+                const res = await fetch(url);
+                const data = await res.json();
+                const servicios = data.results || data;
+
+                document.getElementById('conteoServicios').innerText = `${servicios.length} viajes encontrados`;
+
+                if (servicios.length === 0) {
+                    contenedor.innerHTML = `
+                        <div class="col-12 text-center py-5 text-muted">
+                            <i class="bi bi-emoji-neutral fs-1 d-block mb-2"></i>
+                            No se encontraron viajes para los filtros seleccionados.
+                        </div>`;
+                    return;
+                }
+
+                contenedor.innerHTML = '';
+                servicios.forEach(s => {
+                    const fechaSalida = new Date(s.fecha_hora_salida).toLocaleString('es-CL', {
+                        day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'
+                    });
+
+                    const nombreEmpresa = s.empresa_detalle ? s.empresa_detalle.nombre : 'Buses Chile';
+                    const colorEmpresa = s.empresa_detalle ? s.empresa_detalle.color_hex : '#1e3a8a';
+
+                    contenedor.innerHTML += `
+                        <div class="col-md-6 col-lg-4">
+                            <div class="card card-service h-100 p-4 d-flex flex-column justify-content-between shadow-sm">
+                                <div>
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <span class="badge text-white px-3 py-1 rounded-pill shadow-sm" style="background-color: ${colorEmpresa};">
+                                            <i class="bi bi-buildings-fill me-1"></i>${nombreEmpresa}
+                                        </span>
+                                        <span class="badge bg-success bg-opacity-10 text-success fw-bold">
+                                            <i class="bi bi-people-fill me-1"></i>${s.asientos_disponibles_count} libres
+                                        </span>
+                                    </div>
+                                    <h5 class="fw-bold mb-1">${s.ruta_detalle.origen_detalle.nombre} ➔ ${s.ruta_detalle.destino_detalle.nombre}</h5>
+                                    <p class="text-muted small mb-3">
+                                        <i class="bi bi-clock me-1"></i>Salida: <strong>${fechaSalida}</strong><br>
+                                        <i class="bi bi-bus-front me-1"></i>Bus: ${s.bus_modelo} (${s.bus_patente})
+                                    </p>
+                                    <div class="bg-light p-2 rounded-3 mb-3 small d-flex justify-content-around">
+                                        <div>Semicama: <strong>$${Number(s.precio_semicama).toLocaleString('es-CL')}</strong></div>
+                                        <div class="border-start ps-3">Cama: <strong>$${Number(s.precio_cama).toLocaleString('es-CL')}</strong></div>
+                                    </div>
+                                </div>
+                                <button class="btn btn-outline-primary fw-bold w-100 py-2" onclick="abrirMapaAsientos(${s.id})">
+                                    <i class="bi bi-grid-3x3-gap-fill me-1"></i> Ver Asientos y Reservar
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                });
+            } catch (err) {
+                console.error("Error al cargar servicios:", err);
+                contenedor.innerHTML = '<div class="col-12 text-center text-danger">Error al conectar con la API.</div>';
+            }
+        }
+
+        // 5. MAPA DE ASIENTOS CON SELECCIÓN MÚLTIPLE O EN LOTE
+        async function abrirMapaAsientos(servicioId) {
+            try {
+                const resAsientos = await fetch(`/api/servicios/${servicioId}/asientos/`);
+                const asientos = await resAsientos.json();
+
+                servicioSeleccionado = servicioId;
+                asientosBusActuales = asientos;
+                asientosSeleccionados = [];
+
+                const grid1 = document.getElementById('gridPiso1');
+                const grid2 = document.getElementById('gridPiso2');
+                grid1.innerHTML = '';
+                grid2.innerHTML = '';
+
+                document.getElementById('modalAsientosTitulo').innerText = `Asientos del Servicio #${servicioId}`;
+                document.getElementById('lblModalRuta').innerText = `Servicio #${servicioId}`;
+
+                const disponibles = asientos.filter(a => a.disponible);
+                document.getElementById('lblTotalDisponiblesBus').innerText = `Disponibles: ${disponibles.length} de ${asientos.length}`;
+                const inputNum = document.getElementById('numAsientosRapidos');
+                if (inputNum) {
+                    inputNum.max = disponibles.length;
+                    inputNum.value = Math.min(1, disponibles.length);
+                }
+
+                asientos.forEach(a => {
+                    const btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.id = `btnAsiento_${a.id}`;
+                    btn.className = `seat-btn ${a.disponible ? 'seat-free' : 'seat-taken'}`;
+                    btn.innerHTML = `<span>#${a.numero}</span><small style="font-size:0.65rem;">$${Number(a.precio).toLocaleString('es-CL')}</small>`;
+                    btn.title = a.disponible ? `Asiento ${a.numero} (${a.tipo}) - $${a.precio} (Clic para seleccionar)` : `Asiento ${a.numero} Ocupado`;
+
+                    if (a.disponible) {
+                        btn.onclick = () => toggleSeleccionAsiento(a);
+                    } else {
+                        btn.disabled = true;
+                    }
+
+                    if (a.piso === 1) {
+                        grid1.appendChild(btn);
+                    } else {
+                        grid2.appendChild(btn);
+                    }
+                });
+
+                actualizarUISeleccionAsientos();
+
+                const modal = new bootstrap.Modal(document.getElementById('modalAsientos'));
+                modal.show();
+            } catch (e) {
+                console.error("Error cargando mapa:", e);
+                mostrarAlerta("No se pudo cargar el mapa de asientos", "danger");
+            }
+        }
+
+        function toggleSeleccionAsiento(asiento) {
+            if (!asiento.disponible) return;
+            const idx = asientosSeleccionados.findIndex(a => a.id === asiento.id);
+            if (idx >= 0) {
+                asientosSeleccionados.splice(idx, 1);
+            } else {
+                asientosSeleccionados.push(asiento);
+            }
+            actualizarUISeleccionAsientos();
+        }
+
+        function seleccionarTodosLosAsientos() {
+            const libres = asientosBusActuales.filter(a => a.disponible);
+            if (libres.length === 0) {
+                mostrarAlerta("No hay asientos disponibles en este servicio.", "warning");
+                return;
+            }
+            asientosSeleccionados = [...libres];
+            actualizarUISeleccionAsientos();
+            mostrarAlerta(`Se seleccionaron todos los ${libres.length} asientos disponibles del bus.`, "info");
+        }
+
+        function seleccionarNAsientos() {
+            const n = parseInt(document.getElementById('numAsientosRapidos').value) || 1;
+            const libres = asientosBusActuales.filter(a => a.disponible);
+            if (libres.length === 0) {
+                mostrarAlerta("No hay asientos disponibles en este servicio.", "warning");
+                return;
+            }
+            if (n <= 0) {
+                mostrarAlerta("Ingresa una cantidad mayor a 0.", "warning");
+                return;
+            }
+            const cantidad = Math.min(n, libres.length);
+            asientosSeleccionados = libres.slice(0, cantidad);
+            actualizarUISeleccionAsientos();
+            mostrarAlerta(`Se seleccionaron los primeros ${cantidad} asientos libres.`, "info");
+        }
+
+        function limpiarSeleccionAsientos() {
+            asientosSeleccionados = [];
+            actualizarUISeleccionAsientos();
+        }
+
+        function actualizarUISeleccionAsientos() {
+            const idsSeleccionados = new Set(asientosSeleccionados.map(a => a.id));
+
+            // Actualizar botones de asientos en el DOM
+            asientosBusActuales.forEach(a => {
+                const btn = document.getElementById(`btnAsiento_${a.id}`);
+                if (!btn) return;
+                if (idsSeleccionados.has(a.id)) {
+                    btn.classList.add('seat-selected');
+                } else {
+                    btn.classList.remove('seat-selected');
+                }
+            });
+
+            // Actualizar badge del contador
+            const badgeCant = document.getElementById('badgeTotalSeleccionados');
+            if (badgeCant) {
+                badgeCant.innerHTML = `<i class="bi bi-check2-circle me-1"></i>${asientosSeleccionados.length} seleccionados`;
+            }
+
+            const seccionForm = document.getElementById('seccionFormPasajero');
+            if (asientosSeleccionados.length === 0) {
+                seccionForm.classList.add('d-none');
+                return;
+            }
+
+            seccionForm.classList.remove('d-none');
+            document.getElementById('lblAsientosSeleccionadosTexto').innerText = `${asientosSeleccionados.length} asiento(s)`;
+            const ordenados = [...asientosSeleccionados].sort((a, b) => a.numero - b.numero);
+            document.getElementById('lblDetalleAsientosSeleccionados').innerText = 'Asientos: #' + ordenados.map(a => a.numero).join(', #');
+
+            const totalCLP = asientosSeleccionados.reduce((acc, a) => acc + Number(a.precio), 0);
+            document.getElementById('lblPrecioAsiento').innerText = `$${totalCLP.toLocaleString('es-CL')}`;
+
+            document.getElementById('btnAgregarTexto').innerText = `Agregar ${asientosSeleccionados.length} Asiento(s) al Carro`;
+
+            // Auto-rellenar nombre/rut si están vacíos
+            const txtNom = document.getElementById('txtNombrePasajero');
+            const txtRut = document.getElementById('txtRutPasajero');
+            if (txtNom && !txtNom.value && currentUser) {
+                txtNom.value = currentUser === 'pasajero1' ? 'Juan Pérez' : (currentUser === 'pasajero2' ? 'María González' : currentUser);
+            }
+            if (txtRut && !txtRut.value && currentUser) {
+                txtRut.value = currentUser === 'pasajero1' ? '18.111.222-3' : '19.444.555-6';
+            }
+
+            renderizarPasajerosDetallados();
+        }
+
+        function toggleDetallePasajeros() {
+            const chk = document.getElementById('chkMismoPasajero');
+            const cont = document.getElementById('contenedorPasajerosDetallados');
+            if (chk.checked) {
+                cont.classList.add('d-none');
+            } else {
+                cont.classList.remove('d-none');
+                renderizarPasajerosDetallados();
+            }
+        }
+
+        function renderizarPasajerosDetallados() {
+            const chk = document.getElementById('chkMismoPasajero');
+            const cont = document.getElementById('contenedorPasajerosDetallados');
+            if (!chk || chk.checked || !cont) return;
+
+            const nomTitular = document.getElementById('txtNombrePasajero').value.trim() || 'Pasajero';
+            const rutTitular = document.getElementById('txtRutPasajero').value.trim() || '19.876.543-2';
+
+            const ordenados = [...asientosSeleccionados].sort((a, b) => a.numero - b.numero);
+            let html = '<h6 class="small fw-bold text-muted mb-2"><i class="bi bi-people me-1"></i>Personalizar cada pasaje individualmente:</h6><div class="row g-2">';
+            ordenados.forEach((a, idx) => {
+                html += `
+                    <div class="col-md-6">
+                        <div class="p-2 border rounded-3 bg-white shadow-sm">
+                            <strong class="text-primary small d-block mb-1">Asiento #${a.numero} (${a.tipo} - Piso ${a.piso})</strong>
+                            <div class="input-group input-group-sm mb-1">
+                                <span class="input-group-text">Nombre:</span>
+                                <input type="text" id="detNombre_${a.id}" class="form-control" value="${nomTitular} (Pasajero ${idx + 1})" placeholder="Nombre Pasajero">
+                            </div>
+                            <div class="input-group input-group-sm">
+                                <span class="input-group-text">RUT:</span>
+                                <input type="text" id="detRut_${a.id}" class="form-control" value="${rutTitular}" placeholder="RUT">
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            html += '</div>';
+            cont.innerHTML = html;
+        }
+
+        // 6. AGREGAR MÚLTIPLES ASIENTOS AL CARRO EN LOTE (BULK)
+        async function agregarSeleccionadosAlCarro() {
+            if (asientosSeleccionados.length === 0) {
+                mostrarAlerta("No has seleccionado ningún asiento.", "warning");
+                return;
+            }
+
+            const nombreTitular = document.getElementById('txtNombrePasajero').value.trim();
+            const rutTitular = document.getElementById('txtRutPasajero').value.trim();
+
+            if (!nombreTitular || !rutTitular) {
+                mostrarAlerta("Debes ingresar el Nombre y el RUT del pasajero titular.", "warning");
+                return;
+            }
+
+            const chkMismo = document.getElementById('chkMismoPasajero').checked;
+            const items = [];
+
+            const ordenados = [...asientosSeleccionados].sort((a, b) => a.numero - b.numero);
+            ordenados.forEach((a, idx) => {
+                let nombre = nombreTitular;
+                let rut = rutTitular;
+
+                if (!chkMismo) {
+                    const inputNom = document.getElementById(`detNombre_${a.id}`);
+                    const inputRut = document.getElementById(`detRut_${a.id}`);
+                    if (inputNom && inputNom.value.trim()) nombre = inputNom.value.trim();
+                    if (inputRut && inputRut.value.trim()) rut = inputRut.value.trim();
+                } else if (asientosSeleccionados.length > 1) {
+                    nombre = `${nombreTitular} (Pasajero #${idx + 1})`;
+                }
+
+                items.push({
+                    servicio: servicioSeleccionado,
+                    asiento: a.id,
+                    nombre_pasajero: nombre,
+                    rut_pasajero: rut
+                });
+            });
+
+            const btn = document.getElementById('btnAgregarAlCarroBulk');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Guardando en PostgreSQL...';
+
+            try {
+                const res = await fetch('/api/carro-pasajes/bulk/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({ items })
+                });
+
+                const data = await res.json();
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-cart-plus-fill me-1"></i> <span id="btnAgregarTexto">Agregar Asientos al Carro</span>';
+
+                if (res.ok) {
+                    mostrarAlerta(`¡${items.length} asiento(s) guardados exitosamente en tu carro persistente en PostgreSQL!`, "success");
+                    bootstrap.Modal.getInstance(document.getElementById('modalAsientos')).hide();
+                    await actualizarCarro();
+                } else {
+                    mostrarAlerta(data.detail || JSON.stringify(data), "danger");
+                }
+            } catch (e) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-cart-plus-fill me-1"></i> <span id="btnAgregarTexto">Agregar Asientos al Carro</span>';
+                mostrarAlerta("Error al agregar asientos al carro.", "danger");
+            }
+        }
+
+        // 7. ACTUALIZAR Y VER CARRO PERSISTENTE CON DETECCIÓN DE CONCURRENCIA / ASIENTOS AGOTADOS
+        async function actualizarCarro(notificarPersistencia = false) {
+            if (!authToken) return;
+            try {
+                const res = await fetch('/api/carro-pasajes/', {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    const cant = data.cantidad_items || 0;
+                    document.getElementById('badgeCarro').innerText = cant;
+                    document.getElementById('lblTotalCarro').innerText = `$${Number(data.total || 0).toLocaleString('es-CL')}`;
+
+                    // Alerta de Asientos Agotados / Concurrencia
+                    const alertaAgotados = document.getElementById('alertaAsientosAgotadosCarro');
+                    const txtMsgAgotados = document.getElementById('txtMensajeAgotados');
+                    const btnPagar = document.getElementById('btnPagarCheckout');
+
+                    if (data.tiene_items_agotados) {
+                        alertaAgotados.classList.remove('d-none');
+                        txtMsgAgotados.innerHTML = `<strong>¡Atención!</strong> Se detectaron <strong>${data.cantidad_items_agotados} asiento(s)</strong> que ya fueron adquiridos por otro usuario (o el bus agotó su capacidad total). No es posible continuar con el pago hasta que retires los asientos agotados.`;
+                        btnPagar.disabled = true;
+                        btnPagar.title = "Debes quitar los asientos agotados para poder pagar";
+                    } else {
+                        alertaAgotados.classList.add('d-none');
+                        btnPagar.disabled = (cant === 0);
+                        btnPagar.title = "";
+                    }
+
+                    const lista = document.getElementById('listaItemsCarro');
+                    if (!data.items || data.items.length === 0) {
+                        lista.innerHTML = '<div class="text-center py-4 text-muted"><i class="bi bi-cart-x fs-1 d-block mb-2 text-secondary"></i>Tu carro está vacío. Selecciona un viaje para comenzar.</div>';
+                    } else {
+                        lista.innerHTML = '';
+                        data.items.forEach(it => {
+                            const estaAgotado = (it.esta_disponible === false);
+                            const cardBg = estaAgotado ? 'bg-danger bg-opacity-10 border-danger' : 'bg-white';
+                            const badgeAgotado = estaAgotado ? 
+                                `<span class="badge bg-danger ms-2 shadow-sm"><i class="bi bi-x-octagon-fill me-1"></i>AGOTADO - COMPRADO POR OTRO CLIENTE</span>` : 
+                                `<span class="badge bg-success bg-opacity-10 text-success ms-2">Disponible</span>`;
+                            const motivoHtml = estaAgotado ? 
+                                `<div class="small text-danger fw-bold mt-1"><i class="bi bi-exclamation-circle-fill me-1"></i>Motivo: ${it.motivo_no_disponible || 'Asiento no disponible'}</div>` : '';
+
+                            lista.innerHTML += `
+                                <div class="d-flex justify-content-between align-items-center p-3 mb-2 rounded-3 border shadow-sm ${cardBg}">
+                                    <div>
+                                        <div class="d-flex align-items-center flex-wrap">
+                                            <h6 class="fw-bold mb-0 text-primary">${it.origen} ➔ ${it.destino}</h6>
+                                            ${badgeAgotado}
+                                        </div>
+                                        <div class="small text-muted mt-1">
+                                            Asiento <strong>#${it.asiento_numero}</strong> (${it.asiento_tipo} - Piso ${it.asiento_piso}) &bull; 
+                                            Pasajero: <strong>${it.nombre_pasajero}</strong> (RUT: ${it.rut_pasajero})
+                                        </div>
+                                        ${motivoHtml}
+                                    </div>
+                                    <div class="d-flex align-items-center gap-3">
+                                        <span class="fs-5 fw-bold ${estaAgotado ? 'text-decoration-line-through text-muted' : 'text-success'}">
+                                            $${Number(it.precio_unitario).toLocaleString('es-CL')}
+                                        </span>
+                                        <button class="btn btn-outline-danger btn-sm" onclick="eliminarItemCarro(${it.id})" title="Quitar del carro">
+                                            <i class="bi bi-trash3-fill"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            `;
+                        });
+
+                        if (notificarPersistencia && cant > 0) {
+                            mostrarAlerta(`Se recuperaron ${cant} pasaje(s) previamente guardados en tu carrito en PostgreSQL.`, 'info');
+                        }
+                    }
+                }
+            } catch (e) {
+                console.error("Error al actualizar carro:", e);
+            }
+        }
+
+        async function abrirModalCarro() {
+            await actualizarCarro();
+            const modal = new bootstrap.Modal(document.getElementById('modalCarro'));
+            modal.show();
+        }
+
+        async function eliminarItemCarro(itemId) {
+            try {
+                const res = await fetch(`/api/carro-pasajes/${itemId}/`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                if (res.ok) {
+                    mostrarAlerta("Pasaje eliminado del carro.", "info");
+                    await actualizarCarro();
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        async function ejecutarLimpiarAgotados() {
+            try {
+                const res = await fetch('/api/carro-pasajes/limpiar-agotados/', {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    mostrarAlerta(`Se eliminaron ${data.eliminados} asiento(s) agotados de tu carro.`, 'success');
+                    await actualizarCarro();
+                } else {
+                    mostrarAlerta(data.detail || 'Error al limpiar asientos agotados.', 'danger');
+                }
+            } catch (e) {
+                mostrarAlerta('Error de conexión al limpiar asientos agotados.', 'danger');
+            }
+        }
+
+        // 8. CHECKOUT TRANSACCIONAL ATÓMICO (CON SELECCIÓN DE MÉTODO DE PAGO Y RACE CONDITIONS)
+        async function ejecutarCheckout() {
+            const btn = document.getElementById('btnPagarCheckout');
+            const metodoPago = document.getElementById('selMetodoPago').value;
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Procesando pago atómico...';
+
+            try {
+                const res = await fetch('/api/ventas/checkout/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({ metodo_pago: metodoPago })
+                });
+
+                const data = await res.json();
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-credit-card-fill me-2"></i> Pagar y Emitir Boletos';
+
+                if (res.ok) {
+                    bootstrap.Modal.getInstance(document.getElementById('modalCarro')).hide();
+                    mostrarAlerta(`¡Pago procesado con éxito vía ${data.orden.metodo_pago_display || metodoPago}! Boletos emitidos con UUID.`, "success");
+                    await actualizarCarro();
+                    await cargarServicios();
+                    mostrarBoletosEmitidos(data.orden.boletos);
+                } else {
+                    // Si falló por inventario o sobreventa, avisar detalladamente al usuario
+                    mostrarAlerta(data.detail || JSON.stringify(data), "danger");
+                    await actualizarCarro();
+                    await cargarServicios();
+                }
+            } catch (e) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-credit-card-fill me-2"></i> Pagar y Emitir Boletos';
+                mostrarAlerta("Error al ejecutar checkout", "danger");
+            }
+        }
+
+        // 9. MOSTRAR BOLETOS CON UUID Y EMBARQUE
+        function mostrarBoletosEmitidos(boletos) {
+            const cont = document.getElementById('contenedorBoletos');
+            cont.innerHTML = '';
+
+            boletos.forEach(b => {
+                const fecha = new Date(b.fecha_hora_salida).toLocaleString('es-CL');
+                const embarqueBadge = b.estado_embarque === 'EMBARCADO' ? 'bg-success' : (b.estado_embarque === 'NO_SHOW' ? 'bg-danger' : 'bg-warning text-dark');
+
+                cont.innerHTML += `
+                    <div class="ticket-card mb-3 shadow-sm">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div>
+                                <span class="badge bg-primary px-3 py-1 rounded-pill">BOLETO ELECTRÓNICO OFICIAL</span>
+                                <h4 class="fw-bold mt-2 mb-0">${b.origen} ➔ ${b.destino}</h4>
+                            </div>
+                            <div class="text-end">
+                                <span class="badge ${embarqueBadge}">${b.estado_embarque_display || 'EMITIDO'}</span>
+                                <div class="fs-5 fw-bold text-success mt-1">$${Number(b.precio_pagado).toLocaleString('es-CL')}</div>
+                            </div>
+                        </div>
+                        <hr>
+                        <div class="row g-2 small">
+                            <div class="col-6"><strong>Pasajero:</strong> ${b.nombre_pasajero}</div>
+                            <div class="col-6"><strong>RUT:</strong> ${b.rut_pasajero}</div>
+                            <div class="col-6"><strong>Asiento:</strong> #${b.asiento_numero} (${b.asiento_tipo})</div>
+                            <div class="col-6"><strong>Bus:</strong> ${b.bus_patente}</div>
+                            <div class="col-12"><strong>Salida:</strong> ${fecha} &bull; Terminal: ${b.terminal_origen || 'Principal'}</div>
+                            <div class="col-12 mt-2 pt-2 border-top">
+                                <strong class="text-primary"><i class="bi bi-qr-code me-1"></i>Código UUID de Abordaje:</strong><br>
+                                <code class="user-select-all fs-6">${b.codigo_uuid}</code>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            const modal = new bootstrap.Modal(document.getElementById('modalBoletos'));
+            modal.show();
+        }
+
+        async function abrirMisBoletos() {
+            try {
+                const res = await fetch('/api/mis-boletos/', {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    const boletos = data.results || data;
+                    if (boletos.length === 0) {
+                        mostrarAlerta("No tienes boletos comprados aún con este usuario.", "info");
+                    } else {
+                        mostrarBoletosEmitidos(boletos);
+                    }
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        // 10. PANEL DE COMPAÑÍA DE VIAJE (MULTI-TENANT DASHBOARD)
+        async function abrirPanelEmpresa(empresaId = null) {
+            if (currentRole !== 'ADMIN_FLOTA' && currentRole !== 'ADMIN' && currentRole !== 'ADMINISTRADOR') {
+                mostrarAlerta('Acceso restringido: Esta sección es exclusiva para administradores de compañía de viaje.', 'warning');
+                return;
+            }
+            // Si el usuario es admin de una empresa, cargar esa empresa prioritariamente
+            const idCargar = empresaId || currentTenantId || empresaPanelActivaId || 1;
+            empresaPanelActivaId = idCargar;
+
+            // Sincronizar selector
+            const selModal = document.getElementById('selEmpresaModalSelector');
+            if (selModal) selModal.value = idCargar;
+
+            await cargarMovimientosEmpresa(idCargar);
+            const modal = new bootstrap.Modal(document.getElementById('modalEmpresa'));
+            modal.show();
+        }
+
+        function cambiarEmpresaPanel(id) {
+            empresaPanelActivaId = id;
+            cargarMovimientosEmpresa(id);
+        }
+
+        async function cargarMovimientosEmpresa(empresaId) {
+            try {
+                const res = await fetch(`/api/empresas/${empresaId}/movimientos/`);
+                if (!res.ok) return;
+                const data = await res.json();
+
+                // 1. Datos del header
+                document.getElementById('lblEmpresaModalNombre').innerText = `Panel: ${data.empresa.nombre}`;
+                document.getElementById('lblEmpresaModalRut').innerText = `RUT: ${data.empresa.rut} &bull; Tenant Slug: ${data.empresa.slug}`;
+                document.getElementById('headerModalEmpresa').style.background = `linear-gradient(135deg, ${data.empresa.color_hex}, #0f172a)`;
+
+                // 2. KPIs
+                document.getElementById('kpiTotalBuses').innerText = data.kpis.total_buses;
+                document.getElementById('kpiBusesEnRuta').innerText = data.kpis.buses_en_ruta;
+                document.getElementById('kpiBusesDisponibles').innerText = data.kpis.buses_disponibles;
+                document.getElementById('kpiBusesMantenimiento').innerText = data.kpis.buses_mantenimiento;
+                document.getElementById('kpiBoletosVendidos').innerText = data.kpis.total_boletos_vendidos;
+                document.getElementById('kpiTotalRecaudado').innerText = `$${Number(data.kpis.total_recaudado_clp).toLocaleString('es-CL')}`;
+
+                // 3. Tabla de Máquinas (Flota)
+                const tbody = document.getElementById('tablaBusesEmpresa');
+                tbody.innerHTML = '';
+                data.buses.forEach(b => {
+                    let badgeClass = 'bg-secondary';
+                    if (b.estado_operativo === 'DISPONIBLE') badgeClass = 'bg-success';
+                    if (b.estado_operativo === 'EN_RUTA') badgeClass = 'bg-info text-dark';
+                    if (b.estado_operativo === 'MANTENIMIENTO') badgeClass = 'bg-warning text-dark';
+                    if (b.estado_operativo === 'FUERA_SERVICIO') badgeClass = 'bg-danger';
+
+                    tbody.innerHTML += `
+                        <tr>
+                            <td><strong class="text-primary">${b.patente}</strong></td>
+                            <td>${b.modelo}<br><small class="text-muted">${b.marca}</small></td>
+                            <td><span class="badge bg-light text-dark border">${b.capacidad_total} Asientos</span></td>
+                            <td><span class="badge ${badgeClass}">${b.estado_operativo_display}</span></td>
+                            <td class="small text-muted">${b.servicio_actual}</td>
+                            <td class="text-end">
+                                <div class="dropdown">
+                                    <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                                        Cambiar Estado
+                                    </button>
+                                    <ul class="dropdown-menu dropdown-menu-end">
+                                        <li><a class="dropdown-item small text-success" href="javascript:void(0)" onclick="cambiarEstadoMaquina(${b.id}, 'DISPONIBLE')">🟢 Disponible en Terminal</a></li>
+                                        <li><a class="dropdown-item small text-info" href="javascript:void(0)" onclick="cambiarEstadoMaquina(${b.id}, 'EN_RUTA')">🔵 En Ruta / Asignado</a></li>
+                                        <li><a class="dropdown-item small text-warning" href="javascript:void(0)" onclick="cambiarEstadoMaquina(${b.id}, 'MANTENIMIENTO')">🟠 En Mantenimiento (Taller)</a></li>
+                                        <li><a class="dropdown-item small text-danger" href="javascript:void(0)" onclick="cambiarEstadoMaquina(${b.id}, 'FUERA_SERVICIO')">🔴 Fuera de Servicio</a></li>
+                                    </ul>
+                                </div>
+                            </td>
+                        </tr>
+                    `;
+                });
+
+                // 4. Servicios y Ocupación de Asientos
+                const contenedorServ = document.getElementById('listaServiciosEmpresa');
+                contenedorServ.innerHTML = '';
+
+                if (data.servicios.length === 0) {
+                    contenedorServ.innerHTML = '<div class="text-center py-4 text-muted">No hay servicios programados para esta compañía.</div>';
+                    return;
+                }
+
+                data.servicios.forEach(s => {
+                    const salidaFmt = new Date(s.fecha_hora_salida).toLocaleString('es-CL');
+                    let pasajerosHtml = '';
+
+                    if (s.pasajeros && s.pasajeros.length > 0) {
+                        pasajerosHtml = `
+                            <div class="mt-3 pt-3 border-top">
+                                <h6 class="small fw-bold text-muted mb-2"><i class="bi bi-people-fill me-1"></i>Pasajeros a Bordo (${s.pasajeros.length} asientos ocupados):</h6>
+                                <div class="table-responsive">
+                                    <table class="table table-sm table-bordered bg-white small mb-0">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th>Asiento</th>
+                                                <th>Tipo</th>
+                                                <th>Pasajero</th>
+                                                <th>RUT</th>
+                                                <th>UUID Boleto</th>
+                                                <th>Embarque</th>
+                                                <th>Acción Abordaje</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            ${s.pasajeros.map(p => `
+                                                <tr>
+                                                    <td><strong>#${p.asiento_numero}</strong></td>
+                                                    <td>${p.asiento_tipo}</td>
+                                                    <td>${p.nombre_pasajero}</td>
+                                                    <td>${p.rut_pasajero}</td>
+                                                    <td><code style="font-size:0.75rem;">${p.codigo_uuid.substring(0, 8)}...</code></td>
+                                                    <td>
+                                                        <span class="badge ${p.estado_embarque === 'EMBARCADO' ? 'bg-success' : (p.estado_embarque === 'NO_SHOW' ? 'bg-danger' : 'bg-warning text-dark')}">
+                                                            ${p.estado_embarque_display}
+                                                        </span>
+                                                    </td>
+                                                    <td>
+                                                        <button class="btn btn-sm btn-outline-success py-0 px-2" style="font-size:0.75rem;" onclick="cambiarEmbarquePasajero('${p.codigo_uuid}', 'EMBARCADO')" title="Marcar abordado">
+                                                            ✓ A bordo
+                                                        </button>
+                                                        <button class="btn btn-sm btn-outline-danger py-0 px-2" style="font-size:0.75rem;" onclick="cambiarEmbarquePasajero('${p.codigo_uuid}', 'NO_SHOW')" title="Marcar No Show">
+                                                            ✗ No Show
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            `).join('')}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        `;
+                    } else {
+                        pasajerosHtml = '<div class="mt-2 text-muted small"><i class="bi bi-info-circle me-1"></i>Aún no hay pasajes vendidos en este servicio (todos los asientos están libres).</div>';
+                    }
+
+                    contenedorServ.innerHTML += `
+                        <div class="card p-3 mb-3 border rounded-3 bg-light">
+                            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                                <div>
+                                    <h6 class="fw-bold mb-0 text-primary">${s.ruta}</h6>
+                                    <small class="text-muted"><i class="bi bi-clock me-1"></i>Salida: ${salidaFmt} &bull; Bus: <strong>${s.bus_modelo} (${s.bus_patente})</strong></small>
+                                </div>
+                                <div class="text-end">
+                                    <span class="badge bg-success bg-opacity-10 text-success fw-bold me-2">
+                                        <i class="bi bi-check-circle me-1"></i>${s.asientos_libres} libres
+                                    </span>
+                                    <span class="badge bg-danger bg-opacity-10 text-danger fw-bold">
+                                        <i class="bi bi-person-fill me-1"></i>${s.asientos_ocupados} ocupados
+                                    </span>
+                                    <span class="badge bg-primary ms-1">${s.porcentaje_ocupacion}% Ocupación</span>
+                                </div>
+                            </div>
+                            <div class="progress mt-2" style="height: 8px;">
+                                <div class="progress-bar bg-danger" role="progressbar" style="width: ${s.porcentaje_ocupacion}%"></div>
+                            </div>
+                            ${pasajerosHtml}
+                        </div>
+                    `;
+                });
+
+            } catch (err) {
+                console.error("Error al cargar movimientos:", err);
+            }
+        }
+
+        async function cambiarEstadoMaquina(busId, nuevoEstado) {
+            try {
+                const res = await fetch(`/api/buses/${busId}/estado-operativo/`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({ estado_operativo: nuevoEstado })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    mostrarAlerta(data.mensaje, 'success');
+                    await cargarMovimientosEmpresa(empresaPanelActivaId);
+                    await cargarServicios();
+                } else {
+                    mostrarAlerta(data.detail || "Error al actualizar estado del bus.", 'danger');
+                }
+            } catch (e) {
+                mostrarAlerta("Error de conexión.", 'danger');
+            }
+        }
+
+        async function cambiarEmbarquePasajero(codigoUuid, nuevoEmbarque) {
+            try {
+                const res = await fetch(`/api/boletos/${codigoUuid}/embarque/`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({ estado_embarque: nuevoEmbarque })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    mostrarAlerta(data.mensaje, 'success');
+                    await cargarMovimientosEmpresa(empresaPanelActivaId);
+                } else {
+                    mostrarAlerta(data.detail || "Error al cambiar embarque.", 'danger');
+                }
+            } catch (e) {
+                mostrarAlerta("Error de conexión.", 'danger');
+            }
+        }
+
+        // 11. GESTOR DE FLOTA: CANCELACIÓN Y REVERSIÓN DE STOCK
+        function abrirModalAdminFlota() {
+            if (currentRole !== 'ADMIN_FLOTA' && currentRole !== 'ADMIN' && currentRole !== 'ADMINISTRADOR') {
+                mostrarAlerta('Acceso restringido: El Gestor de Flota es exclusivo para administradores.', 'warning');
+                return;
+            }
+            const modal = new bootstrap.Modal(document.getElementById('modalAdmin'));
+            modal.show();
+        }
+
+        async function ejecutarCambioEstadoOrden() {
+            const ordenId = document.getElementById('txtAdminOrdenId').value;
+            const nuevoEstado = document.getElementById('selAdminNuevoEstado').value;
+            const resDiv = document.getElementById('resultadoAdmin');
+
+            if (!ordenId) {
+                resDiv.innerHTML = '<span class="text-danger">Ingresa un ID de orden.</span>';
+                return;
+            }
+
+            resDiv.innerHTML = '<span class="text-muted">Procesando cambio de estado...</span>';
+
+            try {
+                const res = await fetch(`/api/ventas/${ordenId}/estado/`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({ estado: nuevoEstado })
+                });
+
+                const data = await res.json();
+                if (res.ok) {
+                    resDiv.innerHTML = `<span class="text-success fw-bold">✓ Orden #${ordenId} actualizada a ${nuevoEstado}. Los asientos fueron liberados automáticamente en PostgreSQL.</span>`;
+                    await cargarServicios();
+                    if (empresaPanelActivaId) await cargarMovimientosEmpresa(empresaPanelActivaId);
+                } else {
+                    resDiv.innerHTML = `<span class="text-danger">${data.detail || JSON.stringify(data)}</span>`;
+                }
+            } catch (e) {
+                resDiv.innerHTML = '<span class="text-danger">Error de conexión.</span>';
+            }
+        }
+
+        // UTILIDAD: ALERTA GLOBAL
+        function mostrarAlerta(mensaje, tipo) {
+            const alerta = document.getElementById('alertaGlobal');
+            const texto = document.getElementById('alertaTexto');
+            alerta.className = `alert alert-${tipo} alert-dismissible fade show shadow-sm`;
+            texto.innerHTML = mensaje;
+            alerta.classList.remove('d-none');
+            setTimeout(() => { alerta.classList.add('d-none'); }, 6000);
+        }
+
+        function cerrarAlerta() {
+            document.getElementById('alertaGlobal').classList.add('d-none');
+        }
+    </script>
+</body>
+</html>
