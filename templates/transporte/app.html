@@ -162,10 +162,13 @@
                     </li>
                     <!-- ELEMENTOS EXCLUSIVOS DEL SUPERUSUARIO (ADMIN GLOBAL) -->
                     <li class="nav-item item-superuser-only d-none">
+                        <a class="nav-link fw-semibold text-warning" href="javascript:void(0)" onclick="abrirModalGestionUsuarios()"><i class="bi bi-people-fill me-1"></i>Gestión de Admins & Roles</a>
+                    </li>
+                    <li class="nav-item item-superuser-only d-none">
                         <a class="nav-link fw-semibold text-info" href="/api/docs/" target="_blank"><i class="bi bi-file-code me-1"></i>Swagger</a>
                     </li>
                     <li class="nav-item item-superuser-only d-none">
-                        <a class="nav-link fw-semibold text-danger" href="/admin/" target="_blank"><i class="bi bi-shield-lock me-1"></i>Admin</a>
+                        <a class="nav-link fw-semibold text-danger" href="/admin/" target="_blank"><i class="bi bi-shield-lock me-1"></i>Admin Django</a>
                     </li>
                 </ul>
 
@@ -194,6 +197,7 @@
                             </li>
                             <li><a class="dropdown-item py-2 fw-semibold text-primary" href="javascript:void(0)" onclick="abrirModalLogin()"><i class="bi bi-key-fill me-2"></i>Ingresar con otra cuenta...</a></li>
                             <li id="menuItemRegistrarCliente"><a class="dropdown-item py-2 fw-semibold text-success" href="javascript:void(0)" onclick="abrirModalRegistro()"><i class="bi bi-person-plus-fill me-2"></i>Registrar nuevo cliente</a></li>
+                            <li class="item-superuser-only d-none"><a class="dropdown-item py-2 fw-semibold text-warning" href="javascript:void(0)" onclick="abrirModalGestionUsuarios()"><i class="bi bi-person-gear me-2"></i>Gestión de Admins y Privilegios</a></li>
                             <li><hr class="dropdown-divider"></li>
                             <li><h6 class="dropdown-header text-uppercase fw-bold text-muted small"><i class="bi bi-people-fill me-1"></i>Cuentas Demo de Pasajero</h6></li>
                             <li><a class="dropdown-item py-2" href="javascript:void(0)" onclick="cambiarUsuario('pasajero1', 'pasajero123', 'PASAJERO')"><i class="bi bi-person-check text-success me-2"></i>Pasajero 1 (Juan Pérez)</a></li>
@@ -791,6 +795,247 @@
                         </button>
                     </div>
                     <div id="resultadoAdmin" class="small mt-2"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 7: PANEL DE CONTROL DE USUARIOS Y ROLES (SUPERUSUARIO) -->
+    <div class="modal fade" id="modalGestionUsuarios" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content rounded-4 border-0 shadow-lg">
+                <div class="modal-header text-white border-0 py-3" style="background: linear-gradient(135deg, #1e1b4b, #312e81, #4338ca);">
+                    <div class="d-flex align-items-center gap-3 w-100 justify-content-between pe-2">
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="fs-3 text-warning"><i class="bi bi-shield-fill-check"></i></span>
+                            <div>
+                                <h5 class="modal-title fw-bold mb-0">Gestión de Usuarios, Administradores y Privilegios</h5>
+                                <small class="text-light opacity-75">Panel de Superusuario &bull; Conceder y Revocar Roles, Asignar Empresas y Crear Administradores</small>
+                            </div>
+                        </div>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                </div>
+
+                <div class="modal-body p-4 bg-light">
+                    <!-- RESUMEN / METRICAS -->
+                    <div class="row g-3 mb-4 text-center">
+                        <div class="col-6 col-md-3">
+                            <div class="kpi-card shadow-sm p-3 bg-white rounded-3 border">
+                                <div class="text-muted small fw-bold">Total Usuarios</div>
+                                <h3 class="fw-bold text-primary mb-0" id="superadminTotalUsuarios">0</h3>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <div class="kpi-card shadow-sm p-3 bg-white rounded-3 border">
+                                <div class="text-muted small fw-bold">Administradores Flota</div>
+                                <h3 class="fw-bold text-success mb-0" id="superadminTotalAdmins">0</h3>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <div class="kpi-card shadow-sm p-3 bg-white rounded-3 border">
+                                <div class="text-muted small fw-bold">Pasajeros (Clientes)</div>
+                                <h3 class="fw-bold text-info mb-0" id="superadminTotalPasajeros">0</h3>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <div class="kpi-card shadow-sm p-3 bg-white rounded-3 border">
+                                <div class="text-muted small fw-bold">Tenants / Empresas</div>
+                                <h3 class="fw-bold text-warning mb-0" id="superadminTotalEmpresas">0</h3>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- BARRA DE ACCIÓN SUPERIOR: BÚSQUEDA Y BOTÓN NUEVO USUARIO -->
+                    <div class="d-flex flex-wrap gap-2 justify-content-between align-items-center mb-3">
+                        <div class="input-group" style="max-width: 380px;">
+                            <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-muted"></i></span>
+                            <input type="text" id="txtBuscarUsuarioSuperadmin" class="form-control border-start-0" placeholder="Buscar por usuario, RUT o correo..." oninput="filtrarUsuariosSuperadmin()">
+                        </div>
+                        <button class="btn btn-primary fw-bold shadow-sm d-flex align-items-center gap-2" onclick="toggleFormularioCrearUsuario()">
+                            <i class="bi bi-person-plus-fill"></i>
+                            <span id="btnToggleCrearTexto">Crear Nuevo Administrador / Usuario</span>
+                        </button>
+                    </div>
+
+                    <!-- FORMULARIO DESPLEGABLE PARA CREAR ADMINISTRADOR / USUARIO -->
+                    <div id="cardCrearUsuarioSuperadmin" class="card border-0 shadow-sm rounded-4 mb-4 d-none">
+                        <div class="card-header bg-primary bg-opacity-10 border-0 py-3 d-flex justify-content-between align-items-center">
+                            <h6 class="fw-bold text-primary mb-0"><i class="bi bi-person-fill-gear me-2"></i>Registrar Nuevo Administrador de Flota o Usuario</h6>
+                            <button type="button" class="btn-close btn-sm" onclick="toggleFormularioCrearUsuario()"></button>
+                        </div>
+                        <div class="card-body p-4">
+                            <form id="formCrearUsuarioSuperadmin" onsubmit="event.preventDefault(); crearUsuarioSuperadmin();">
+                                <div class="row g-3">
+                                    <div class="col-md-4">
+                                        <label class="form-label small fw-bold">Nombre de Usuario *</label>
+                                        <input type="text" id="superadminCrearUsername" class="form-control" placeholder="Ej: admin_flota2" required>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label small fw-bold">Contraseña *</label>
+                                        <input type="password" id="superadminCrearPassword" class="form-control" placeholder="Mínimo 6 caracteres" minlength="6" required>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label small fw-bold">Correo Electrónico</label>
+                                        <input type="email" id="superadminCrearEmail" class="form-control" placeholder="flota@empresa.cl">
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label small fw-bold">Nombre</label>
+                                        <input type="text" id="superadminCrearFirstName" class="form-control" placeholder="Ej: Roberto">
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label small fw-bold">Apellidos</label>
+                                        <input type="text" id="superadminCrearLastName" class="form-control" placeholder="Ej: Soto">
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label small fw-bold">RUT / Pasaporte</label>
+                                        <input type="text" id="superadminCrearRut" class="form-control" placeholder="Ej: 15.678.901-2">
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label small fw-bold">Teléfono</label>
+                                        <input type="tel" id="superadminCrearTelefono" class="form-control" placeholder="+56912345678">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label small fw-bold text-primary"><i class="bi bi-award-fill me-1"></i>Rol en el Sistema *</label>
+                                        <select id="superadminCrearRol" class="form-select border-primary">
+                                            <option value="ADMIN_FLOTA" selected>Administrador de Flota (ADMIN_FLOTA)</option>
+                                            <option value="PASAJERO">Pasajero (PASAJERO)</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-5">
+                                        <label class="form-label small fw-bold text-success"><i class="bi bi-buildings-fill me-1"></i>Empresa Asignada (Tenant)</label>
+                                        <select id="superadminCrearEmpresa" class="form-select">
+                                            <option value="">-- Sin empresa (Global / Pasajero) --</option>
+                                        </select>
+                                        <small class="text-muted d-block mt-1">Si es Administrador de Flota, determina la empresa que gestionará.</small>
+                                    </div>
+                                    <div class="col-md-3 d-flex align-items-center pt-3">
+                                        <div class="form-check form-switch mt-2">
+                                            <input class="form-check-input" type="checkbox" id="superadminCrearIsStaff" checked>
+                                            <label class="form-check-label small fw-bold" for="superadminCrearIsStaff">Acceso Staff (Django Admin)</label>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div id="resultadoCrearUsuarioSuperadmin" class="small mt-3"></div>
+
+                                <div class="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
+                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="toggleFormularioCrearUsuario()">Cancelar</button>
+                                    <button type="submit" class="btn btn-success fw-bold px-4 shadow-sm" id="btnSubmitCrearSuperadmin">
+                                        <i class="bi bi-check-circle-fill me-1"></i> Guardar y Crear Usuario
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+
+                    <!-- TABLA PRINCIPAL DE USUARIOS -->
+                    <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+                        <div class="card-header bg-white py-3 border-bottom d-flex justify-content-between align-items-center">
+                            <h6 class="fw-bold mb-0 text-dark">
+                                <i class="bi bi-people-fill text-primary me-2"></i>Usuarios Registrados en el Sistema
+                            </h6>
+                            <span class="badge bg-secondary rounded-pill" id="lblConteoUsuariosTabla">0 usuarios</span>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle mb-0">
+                                <thead class="table-light small text-uppercase fw-bold text-muted">
+                                    <tr>
+                                        <th>Usuario / Correo</th>
+                                        <th>Nombre Completo</th>
+                                        <th>Rol</th>
+                                        <th>Empresa (Tenant)</th>
+                                        <th class="text-center">Staff</th>
+                                        <th class="text-center">Estado</th>
+                                        <th class="text-end pe-3">Acciones / Privilegios</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tablaUsuariosSuperadminBody">
+                                    <tr>
+                                        <td colspan="7" class="text-center py-4 text-muted">
+                                            <div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>
+                                            Cargando lista de usuarios...
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-footer border-0 bg-white">
+                    <button type="button" class="btn btn-secondary px-4 fw-semibold" data-bs-dismiss="modal">Cerrar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 8: MODIFICAR PRIVILEGIOS DE UN USUARIO (SUPERUSUARIO) -->
+    <div class="modal fade" id="modalEditarPrivilegios" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content rounded-4 border-0 shadow-lg">
+                <div class="modal-header bg-warning text-dark border-0 py-3">
+                    <h5 class="modal-title fw-bold">
+                        <i class="bi bi-shield-shaded me-2"></i>Modificar Privilegios y Rol
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="alert alert-light border mb-3 p-3">
+                        <div class="small text-muted">Usuario a modificar:</div>
+                        <h5 class="fw-bold mb-0 text-primary" id="lblEditarPrivilegiosUsuario">username</h5>
+                        <small class="text-muted" id="lblEditarPrivilegiosDetalle">Correo / RUT</small>
+                    </div>
+
+                    <form id="formEditarPrivilegios" onsubmit="event.preventDefault(); guardarCambiosPrivilegios();">
+                        <input type="hidden" id="editUserId">
+
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold text-primary"><i class="bi bi-award-fill me-1"></i>Rol del Usuario</label>
+                            <select id="editUserRol" class="form-select border-primary fw-semibold">
+                                <option value="ADMIN_FLOTA">Administrador de Flota (ADMIN_FLOTA)</option>
+                                <option value="PASAJERO">Pasajero (PASAJERO)</option>
+                            </select>
+                            <small class="text-muted">Los Administradores de Flota pueden gestionar itinerarios y cancelar órdenes.</small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold text-success"><i class="bi bi-buildings-fill me-1"></i>Empresa Asignada (Tenant)</label>
+                            <select id="editUserEmpresa" class="form-select">
+                                <option value="">-- Ninguna / Global (Sin Tenant) --</option>
+                            </select>
+                            <small class="text-muted">Determina a qué empresa pertenece para gestionar buses e itinerarios.</small>
+                        </div>
+
+                        <div class="mb-3 p-3 bg-light rounded-3 border">
+                            <div class="form-check form-switch mb-2">
+                                <input class="form-check-input" type="checkbox" id="editUserIsStaff">
+                                <label class="form-check-label fw-bold small" for="editUserIsStaff">
+                                    Acceso al Panel Django Admin (<code>is_staff</code>)
+                                </label>
+                            </div>
+                            <small class="text-muted d-block">Permite ingresar con sus credenciales al panel nativo de administración <code>/admin/</code>.</small>
+                        </div>
+
+                        <div class="mb-3 p-3 bg-light rounded-3 border">
+                            <div class="form-check form-switch mb-2">
+                                <input class="form-check-input" type="checkbox" id="editUserIsActive" checked>
+                                <label class="form-check-label fw-bold small" for="editUserIsActive">
+                                    Cuenta Activa (<code>is_active</code>)
+                                </label>
+                            </div>
+                            <small class="text-muted d-block">Si se desmarca, el usuario no podrá iniciar sesión en ningún punto del sistema.</small>
+                        </div>
+
+                        <div id="resultadoEditarPrivilegios" class="small mt-2"></div>
+
+                        <div class="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
+                            <button type="button" class="btn btn-secondary fw-semibold" data-bs-dismiss="modal">Cancelar</button>
+                            <button type="submit" class="btn btn-primary fw-bold px-4" id="btnSubmitEditarPrivilegios">
+                                <i class="bi bi-save2-fill me-1"></i> Guardar Cambios
+                            </button>
+                        </div>
+                    </form>
                 </div>
             </div>
         </div>
@@ -1982,6 +2227,400 @@
                 }
             } catch (e) {
                 resDiv.innerHTML = '<span class="text-danger">Error de conexión.</span>';
+            }
+        }
+
+        // ==============================================================================
+        // 12. GESTIÓN DE USUARIOS, ADMINISTRADORES Y PRIVILEGIOS (SUPERUSUARIO)
+        // ==============================================================================
+        let usuariosSuperadminCache = [];
+        let modalGestionUsuariosInstance = null;
+        let modalEditarPrivilegiosInstance = null;
+
+        function poblarSelectorEmpresasSuperadmin() {
+            const selCrear = document.getElementById('superadminCrearEmpresa');
+            const selEdit = document.getElementById('editUserEmpresa');
+
+            if (selCrear) {
+                selCrear.innerHTML = '<option value="">-- Sin empresa (Global / Pasajero) --</option>';
+                empresasDisponibles.forEach(e => {
+                    selCrear.innerHTML += `<option value="${e.id}">${e.nombre}</option>`;
+                });
+            }
+
+            if (selEdit) {
+                selEdit.innerHTML = '<option value="">-- Sin empresa (Global / Pasajero) --</option>';
+                empresasDisponibles.forEach(e => {
+                    selEdit.innerHTML += `<option value="${e.id}">${e.nombre}</option>`;
+                });
+            }
+        }
+
+        async function abrirModalGestionUsuarios() {
+            if (!isSuperUser) {
+                mostrarAlerta('Acceso denegado: Se requieren permisos de Superusuario para gestionar usuarios y roles.', 'warning');
+                return;
+            }
+
+            poblarSelectorEmpresasSuperadmin();
+
+            if (!modalGestionUsuariosInstance) {
+                modalGestionUsuariosInstance = new bootstrap.Modal(document.getElementById('modalGestionUsuarios'));
+            }
+            modalGestionUsuariosInstance.show();
+
+            await cargarListaUsuariosSuperadmin();
+        }
+
+        async function cargarListaUsuariosSuperadmin() {
+            const tbody = document.getElementById('tablaUsuariosSuperadminBody');
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="7" class="text-center py-4 text-muted">
+                        <div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>
+                        Cargando lista de usuarios...
+                    </td>
+                </tr>
+            `;
+
+            try {
+                const res = await fetch('/api/superadmin/usuarios/', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+
+                if (res.ok) {
+                    const data = await res.json();
+                    usuariosSuperadminCache = data.results || data;
+
+                    // Actualizar métricas KPI
+                    const total = usuariosSuperadminCache.length;
+                    const admins = usuariosSuperadminCache.filter(u => u.rol === 'ADMIN_FLOTA').length;
+                    const pasajeros = usuariosSuperadminCache.filter(u => u.rol === 'PASAJERO').length;
+
+                    document.getElementById('superadminTotalUsuarios').innerText = total;
+                    document.getElementById('superadminTotalAdmins').innerText = admins;
+                    document.getElementById('superadminTotalPasajeros').innerText = pasajeros;
+                    document.getElementById('superadminTotalEmpresas').innerText = empresasDisponibles.length;
+                    document.getElementById('lblConteoUsuariosTabla').innerText = `${total} usuario${total === 1 ? '' : 's'}`;
+
+                    renderTablaUsuariosSuperadmin(usuariosSuperadminCache);
+                } else {
+                    const err = await res.json();
+                    tbody.innerHTML = `<tr><td colspan="7" class="text-center text-danger py-4">${err.detail || 'Error al cargar usuarios.'}</td></tr>`;
+                }
+            } catch (e) {
+                tbody.innerHTML = `<tr><td colspan="7" class="text-center text-danger py-4">Error de conexión con la API de usuarios.</td></tr>`;
+            }
+        }
+
+        function filtrarUsuariosSuperadmin() {
+            const query = (document.getElementById('txtBuscarUsuarioSuperadmin').value || '').toLowerCase().trim();
+            if (!query) {
+                renderTablaUsuariosSuperadmin(usuariosSuperadminCache);
+                return;
+            }
+
+            const filtrados = usuariosSuperadminCache.filter(u => {
+                const usr = (u.username || '').toLowerCase();
+                const nom = (u.nombre_completo || '').toLowerCase();
+                const em = (u.email || '').toLowerCase();
+                const rut = (u.rut || '').toLowerCase();
+                const rol = (u.rol || '').toLowerCase();
+                const emp = (u.empresa_nombre || '').toLowerCase();
+                return usr.includes(query) || nom.includes(query) || em.includes(query) || rut.includes(query) || rol.includes(query) || emp.includes(query);
+            });
+
+            renderTablaUsuariosSuperadmin(filtrados);
+        }
+
+        function renderTablaUsuariosSuperadmin(lista) {
+            const tbody = document.getElementById('tablaUsuariosSuperadminBody');
+            if (!lista || lista.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-muted">No se encontraron usuarios coincidentes.</td></tr>`;
+                return;
+            }
+
+            let html = '';
+            lista.forEach(u => {
+                // Badge de rol
+                let rolBadge = '';
+                if (u.rol === 'ADMIN_FLOTA') {
+                    rolBadge = '<span class="badge bg-primary px-2 py-1"><i class="bi bi-shield-lock-fill me-1"></i>ADMIN_FLOTA</span>';
+                } else {
+                    rolBadge = '<span class="badge bg-secondary px-2 py-1"><i class="bi bi-person me-1"></i>PASAJERO</span>';
+                }
+
+                // Badge de empresa
+                let empBadge = '';
+                if (u.empresa_nombre) {
+                    empBadge = `<span class="badge bg-dark border border-secondary text-light px-2 py-1"><i class="bi bi-buildings me-1 text-warning"></i>${u.empresa_nombre}</span>`;
+                } else {
+                    empBadge = `<span class="text-muted small fst-italic">Sin Tenant (Global)</span>`;
+                }
+
+                // Badge de staff
+                const staffBadge = u.is_staff 
+                    ? '<span class="badge bg-success bg-opacity-25 text-success border border-success"><i class="bi bi-check-circle-fill me-1"></i>Sí</span>'
+                    : '<span class="badge bg-light text-muted border">No</span>';
+
+                // Badge de activo
+                const activeBadge = u.is_active 
+                    ? '<span class="badge bg-success">Activo</span>'
+                    : '<span class="badge bg-danger">Inactivo</span>';
+
+                // Superuser indicador
+                const superBadge = u.is_superuser
+                    ? '<span class="badge bg-danger ms-1 text-uppercase" style="font-size: 0.65rem;">Superuser</span>'
+                    : '';
+
+                // Botones de acción rápida
+                const esMismoUsuario = (u.username === currentUser || u.is_superuser);
+                let btnAccionRol = '';
+                if (!esMismoUsuario) {
+                    if (u.rol === 'PASAJERO') {
+                        btnAccionRol = `
+                            <button class="btn btn-sm btn-outline-primary py-0 px-2 fw-semibold" title="Ascender a Administrador de Flota" onclick="cambioRapidoRol(${u.id}, 'ADMIN_FLOTA')">
+                                <i class="bi bi-arrow-up-circle-fill me-1 text-primary"></i>Hacer Admin
+                            </button>
+                        `;
+                    } else {
+                        btnAccionRol = `
+                            <button class="btn btn-sm btn-outline-danger py-0 px-2 fw-semibold" title="Revocar a Pasajero" onclick="cambioRapidoRol(${u.id}, 'PASAJERO')">
+                                <i class="bi bi-arrow-down-circle text-danger me-1"></i>Quitar Admin
+                            </button>
+                        `;
+                    }
+                }
+
+                html += `
+                    <tr>
+                        <td>
+                            <div class="fw-bold text-dark d-flex align-items-center">
+                                ${u.username} ${superBadge}
+                            </div>
+                            <small class="text-muted d-block">${u.email || 'Sin correo'}</small>
+                        </td>
+                        <td>
+                            <div class="small fw-semibold text-secondary">${u.nombre_completo || '-'}</div>
+                            <small class="text-muted">${u.rut ? `RUT: ${u.rut}` : ''}</small>
+                        </td>
+                        <td>${rolBadge}</td>
+                        <td>${empBadge}</td>
+                        <td class="text-center">${staffBadge}</td>
+                        <td class="text-center">${activeBadge}</td>
+                        <td class="text-end pe-3">
+                            <div class="d-inline-flex gap-1 align-items-center">
+                                ${btnAccionRol}
+                                <button class="btn btn-sm btn-warning text-dark fw-bold py-1 px-2 shadow-sm" onclick="abrirModalEditarPrivilegios(${u.id})">
+                                    <i class="bi bi-pencil-square me-1"></i>Privilegios
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            tbody.innerHTML = html;
+        }
+
+        function toggleFormularioCrearUsuario() {
+            const card = document.getElementById('cardCrearUsuarioSuperadmin');
+            const texto = document.getElementById('btnToggleCrearTexto');
+            if (card.classList.contains('d-none')) {
+                card.classList.remove('d-none');
+                texto.innerText = 'Cerrar Formulario';
+                poblarSelectorEmpresasSuperadmin();
+                document.getElementById('superadminCrearUsername').focus();
+            } else {
+                card.classList.add('d-none');
+                texto.innerText = 'Crear Nuevo Administrador / Usuario';
+                document.getElementById('formCrearUsuarioSuperadmin').reset();
+                document.getElementById('resultadoCrearUsuarioSuperadmin').innerHTML = '';
+            }
+        }
+
+        async function crearUsuarioSuperadmin() {
+            const username = document.getElementById('superadminCrearUsername').value.trim();
+            const password = document.getElementById('superadminCrearPassword').value;
+            const email = document.getElementById('superadminCrearEmail').value.trim();
+            const first_name = document.getElementById('superadminCrearFirstName').value.trim();
+            const last_name = document.getElementById('superadminCrearLastName').value.trim();
+            const rut = document.getElementById('superadminCrearRut').value.trim();
+            const telefono = document.getElementById('superadminCrearTelefono').value.trim();
+            const rol = document.getElementById('superadminCrearRol').value;
+            const empVal = document.getElementById('superadminCrearEmpresa').value;
+            const empresa = empVal ? parseInt(empVal, 10) : null;
+            const is_staff = document.getElementById('superadminCrearIsStaff').checked;
+
+            const resDiv = document.getElementById('resultadoCrearUsuarioSuperadmin');
+            const btnSubmit = document.getElementById('btnSubmitCrearSuperadmin');
+
+            btnSubmit.disabled = true;
+            btnSubmit.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Creando...';
+            resDiv.innerHTML = '';
+
+            try {
+                const res = await fetch('/api/superadmin/usuarios/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({
+                        username,
+                        password,
+                        email,
+                        first_name,
+                        last_name,
+                        rut,
+                        telefono,
+                        rol,
+                        empresa,
+                        is_staff,
+                        is_active: true
+                    })
+                });
+
+                const data = await res.json();
+
+                if (res.ok) {
+                    mostrarAlerta(`✓ Usuario <strong>${data.username}</strong> creado exitosamente con rol <strong>${data.rol}</strong>.`, 'success');
+                    toggleFormularioCrearUsuario();
+                    await cargarListaUsuariosSuperadmin();
+                } else {
+                    let errMsg = 'Error al crear usuario: ';
+                    if (typeof data === 'object') {
+                        errMsg += Object.entries(data).map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(', ') : v}`).join(' | ');
+                    } else {
+                        errMsg += JSON.stringify(data);
+                    }
+                    resDiv.innerHTML = `<div class="alert alert-danger py-2 mb-0">${errMsg}</div>`;
+                }
+            } catch (err) {
+                resDiv.innerHTML = `<div class="alert alert-danger py-2 mb-0">Error de conexión al crear usuario.</div>`;
+            } finally {
+                btnSubmit.disabled = false;
+                btnSubmit.innerHTML = '<i class="bi bi-check-circle-fill me-1"></i> Guardar y Crear Usuario';
+            }
+        }
+
+        function abrirModalEditarPrivilegios(userId) {
+            const user = usuariosSuperadminCache.find(u => u.id === userId);
+            if (!user) {
+                mostrarAlerta('No se encontró el usuario seleccionado.', 'warning');
+                return;
+            }
+
+            poblarSelectorEmpresasSuperadmin();
+
+            document.getElementById('editUserId').value = user.id;
+            document.getElementById('lblEditarPrivilegiosUsuario').innerText = user.username + (user.is_superuser ? ' (Superusuario)' : '');
+            document.getElementById('lblEditarPrivilegiosDetalle').innerText = `${user.nombre_completo || 'Sin nombre'} &bull; ${user.email || 'Sin correo'} &bull; RUT: ${user.rut || 'N/A'}`;
+
+            document.getElementById('editUserRol').value = user.rol || 'PASAJERO';
+            document.getElementById('editUserEmpresa').value = user.empresa || '';
+            document.getElementById('editUserIsStaff').checked = Boolean(user.is_staff);
+            document.getElementById('editUserIsActive').checked = Boolean(user.is_active);
+
+            document.getElementById('resultadoEditarPrivilegios').innerHTML = '';
+
+            // Si es el mismo superusuario conectado, advertir que no puede quitarse sus privilegios
+            if (user.username === currentUser || user.is_superuser) {
+                document.getElementById('editUserRol').disabled = true;
+                document.getElementById('editUserIsActive').disabled = true;
+            } else {
+                document.getElementById('editUserRol').disabled = false;
+                document.getElementById('editUserIsActive').disabled = false;
+            }
+
+            if (!modalEditarPrivilegiosInstance) {
+                modalEditarPrivilegiosInstance = new bootstrap.Modal(document.getElementById('modalEditarPrivilegios'));
+            }
+            modalEditarPrivilegiosInstance.show();
+        }
+
+        async function guardarCambiosPrivilegios() {
+            const userId = document.getElementById('editUserId').value;
+            const rol = document.getElementById('editUserRol').value;
+            const empVal = document.getElementById('editUserEmpresa').value;
+            const empresa = empVal ? parseInt(empVal, 10) : null;
+            const is_staff = document.getElementById('editUserIsStaff').checked;
+            const is_active = document.getElementById('editUserIsActive').checked;
+
+            const resDiv = document.getElementById('resultadoEditarPrivilegios');
+            const btnSubmit = document.getElementById('btnSubmitEditarPrivilegios');
+
+            btnSubmit.disabled = true;
+            btnSubmit.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Guardando...';
+            resDiv.innerHTML = '';
+
+            try {
+                const res = await fetch(`/api/superadmin/usuarios/${userId}/privilegios/`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({
+                        rol,
+                        empresa,
+                        is_staff,
+                        is_active
+                    })
+                });
+
+                const data = await res.json();
+
+                if (res.ok) {
+                    if (modalEditarPrivilegiosInstance) modalEditarPrivilegiosInstance.hide();
+                    mostrarAlerta(`✓ Privilegios actualizados con éxito para <strong>${data.username}</strong> (Rol: <strong>${data.rol}</strong>).`, 'success');
+                    await cargarListaUsuariosSuperadmin();
+                } else {
+                    resDiv.innerHTML = `<div class="alert alert-danger py-2 mb-0">${data.detail || JSON.stringify(data)}</div>`;
+                }
+            } catch (err) {
+                resDiv.innerHTML = `<div class="alert alert-danger py-2 mb-0">Error de comunicación con el servidor.</div>`;
+            } finally {
+                btnSubmit.disabled = false;
+                btnSubmit.innerHTML = '<i class="bi bi-save2-fill me-1"></i> Guardar Cambios';
+            }
+        }
+
+        async function cambioRapidoRol(userId, nuevoRol) {
+            const user = usuariosSuperadminCache.find(u => u.id === userId);
+            if (!user) return;
+
+            const confirmacion = confirm(`¿Estás seguro de cambiar el rol de "${user.username}" a ${nuevoRol}?`);
+            if (!confirmacion) return;
+
+            try {
+                const payload = { rol: nuevoRol };
+                if (nuevoRol === 'ADMIN_FLOTA' && !user.empresa && empresasDisponibles.length > 0) {
+                    payload.empresa = empresasDisponibles[0].id;
+                    payload.is_staff = true;
+                }
+
+                const res = await fetch(`/api/superadmin/usuarios/${userId}/privilegios/`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                const data = await res.json();
+                if (res.ok) {
+                    mostrarAlerta(`✓ Rol de <strong>${data.username}</strong> actualizado a <strong>${data.rol}</strong>.`, 'success');
+                    await cargarListaUsuariosSuperadmin();
+                } else {
+                    mostrarAlerta(`Error: ${data.detail || JSON.stringify(data)}`, 'danger');
+                }
+            } catch (err) {
+                mostrarAlerta('Error de conexión al actualizar rol.', 'danger');
             }
         }
 

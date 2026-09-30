@@ -110,3 +110,19 @@ class IsOwnerOrAdmin(permissions.BasePermission):
             return obj.orden.usuario_id == request.user.id
 
         return False
+
+
+class IsSuperUser(permissions.BasePermission):
+    """
+    Permiso que autoriza únicamente a superusuarios del sistema (is_superuser=True o usuario 'admin').
+    Utilizado en la gestión interna de usuarios, creación de administradores y concesión o revocación de privilegios.
+    """
+    message = "Acceso denegado: Se requieren privilegios de Superusuario para gestionar administradores y roles."
+
+    def has_permission(self, request, view):
+        return bool(
+            request.user
+            and request.user.is_authenticated
+            and (request.user.is_superuser or request.user.username == "admin")
+        )
+

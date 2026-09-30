@@ -51,6 +51,9 @@ from .models import (
 from .serializers import (
     CustomTokenObtainPairSerializer,
     UsuarioRegistroSerializer,
+    UsuarioAdminListSerializer,
+    UsuarioAdminCreateSerializer,
+    UsuarioPrivilegiosUpdateSerializer,
     EmpresaTransporteSerializer,
     CiudadSerializer,
     BusSerializer,
@@ -73,6 +76,7 @@ from .permissions import (
     IsAdminFlota,
     IsAdminFlotaOrReadOnly,
     IsOwnerOrAdmin,
+    IsSuperUser,
 )
 from .filters import ServicioFilter
 from .services import (
@@ -204,6 +208,92 @@ class RegistroUsuarioView(generics.CreateAPIView):
     )
     def post(self, request, *args, **kwargs):
         return super().post(request, *args, **kwargs)
+
+
+class SuperuserGestionUsuariosView(generics.ListCreateAPIView):
+    """
+    Endpoint para que el Superusuario consulte y cree usuarios y administradores.
+    GET /api/superadmin/usuarios/ -> Listado de usuarios con roles y empresas
+    POST /api/superadmin/usuarios/ -> Crear nuevo administrador o pasajero
+    """
+    queryset = Usuario.objects.all().select_related("empresa").order_by("-date_joined")
+    permission_classes = [IsSuperUser]
+
+    def get_serializer_class(self):
+        if self.request.method == "POST":
+            return UsuarioAdminCreateSerializer
+        return UsuarioAdminListSerializer
+
+    @extend_schema(
+        summary="Listar Usuarios del Sistema (Superusuario)",
+        description="Obtiene la lista completa de usuarios con sus roles, empresas asociadas y estado.",
+        responses={200: UsuarioAdminListSerializer(many=True)},
+    )
+    def get(self, request, *args, **kwargs):
+        return super().get(request, *args, **kwargs)
+
+    @extend_schema(
+        summary="Crear Administrador o Usuario (Superusuario)",
+        description="Crea un nuevo usuario asignándole rol (ADMIN_FLOTA o PASAJERO), empresa y permisos de staff.",
+        request=UsuarioAdminCreateSerializer,
+        responses={201: UsuarioAdminListSerializer},
+    )
+    def post(self, request, *args, **kwargs):
+        serializer = UsuarioAdminCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        usuario = serializer.save()
+        return Response(
+            UsuarioAdminListSerializer(usuario).data,
+            status=status.HTTP_201_CREATED
+        )
+
+
+class SuperuserModificarPrivilegiosView(APIView):
+    """
+    Endpoint para que el Superusuario conceda o revoque privilegios (rol, empresa, is_staff, is_active).
+    PATCH /api/superadmin/usuarios/{id}/privilegios/
+    """
+    permission_classes = [IsSuperUser]
+
+    @extend_schema(
+        summary="Conceder o Revocar Privilegios de Usuario (Superusuario)",
+        description="Permite modificar rol (ADMIN_FLOTA / PASAJERO), empresa asignada, flag is_staff y estado is_active.",
+        request=UsuarioPrivilegiosUpdateSerializer,
+        responses={200: UsuarioAdminListSerializer},
+    )
+    def patch(self, request, pk, *args, **kwargs):
+        try:
+            usuario_target = Usuario.objects.get(pk=pk)
+        except Usuario.DoesNotExist:
+            return Response(
+                {"detail": "Usuario no encontrado."},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Regla de seguridad: el superusuario no puede quitarse sus propios privilegios ni desactivarse a sí mismo
+        if usuario_target.id == request.user.id:
+            if request.data.get("is_active") is False:
+                return Response(
+                    {"detail": "No puedes desactivar tu propia cuenta de superusuario."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            if request.data.get("rol") and request.data.get("rol") != usuario_target.rol:
+                return Response(
+                    {"detail": "No puedes cambiar el rol de tu propia cuenta de superusuario desde aquí."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+        serializer = UsuarioPrivilegiosUpdateSerializer(usuario_target, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        usuario_actualizado = serializer.save()
+
+        if usuario_actualizado.rol == Usuario.ROL_PASAJERO:
+            CarroPasajes.objects.get_or_create(usuario=usuario_actualizado)
+
+        return Response(
+            UsuarioAdminListSerializer(usuario_actualizado).data,
+            status=status.HTTP_200_OK
+        )
 
 
 # ==============================================================================

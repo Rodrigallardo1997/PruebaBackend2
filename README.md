@@ -121,6 +121,8 @@ erDiagram
 | **POST** | `/api/servicios/` | `Admin Flota` | Crear nuevo itinerario de viaje. |
 | **PUT/DELETE**| `/api/servicios/{id}/` | `Admin Flota` | Modificar o dar de baja un servicio. |
 | **PATCH**| `/api/ventas/{id}/estado/` | `Admin Flota` | Cambiar estado (ej: a `CANCELADO`). **Reversión automática de inventario** (libera los asientos en el acto). |
+| **GET/POST**| `/api/superadmin/usuarios/` | `Superusuario` | Listar todos los usuarios y crear administradores de flota con empresa asignada. |
+| **PATCH**| `/api/superadmin/usuarios/{id}/privilegios/` | `Superusuario` | Conceder o revocar privilegios: cambiar rol (`ADMIN_FLOTA`/`PASAJERO`), empresa, staff y estado activo. |
 | **GET** | `/api/docs/` | Público | Documentación interactiva Swagger UI. |
 
 ---

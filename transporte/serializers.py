@@ -129,6 +129,104 @@ class UsuarioRegistroSerializer(serializers.ModelSerializer):
         return user
 
 
+class UsuarioAdminListSerializer(serializers.ModelSerializer):
+    """
+    Serializador para el listado administrativo completo de usuarios por el Superusuario.
+    Incluye detalles de roles, estado de cuenta y empresa asignada.
+    """
+    empresa_nombre = serializers.CharField(source="empresa.nombre", read_only=True, default=None)
+    empresa_slug = serializers.CharField(source="empresa.slug", read_only=True, default=None)
+    nombre_completo = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Usuario
+        fields = [
+            "id",
+            "username",
+            "email",
+            "first_name",
+            "last_name",
+            "nombre_completo",
+            "rut",
+            "telefono",
+            "rol",
+            "empresa",
+            "empresa_nombre",
+            "empresa_slug",
+            "is_staff",
+            "is_superuser",
+            "is_active",
+            "date_joined",
+        ]
+
+    def get_nombre_completo(self, obj):
+        nombre = f"{obj.first_name} {obj.last_name}".strip()
+        return nombre if nombre else obj.username
+
+
+class UsuarioAdminCreateSerializer(serializers.ModelSerializer):
+    """
+    Serializador para que el Superusuario cree usuarios con cualquier rol y empresa asociada.
+    """
+    password = serializers.CharField(write_only=True, min_length=6, style={"input_type": "password"})
+    empresa = serializers.PrimaryKeyRelatedField(
+        queryset=EmpresaTransporte.objects.all(), required=False, allow_null=True
+    )
+
+    class Meta:
+        model = Usuario
+        fields = [
+            "id",
+            "username",
+            "password",
+            "email",
+            "first_name",
+            "last_name",
+            "rut",
+            "telefono",
+            "rol",
+            "empresa",
+            "is_staff",
+            "is_active",
+        ]
+        read_only_fields = ["id"]
+
+    def create(self, validated_data):
+        password = validated_data.pop("password")
+        is_staff = validated_data.pop("is_staff", False)
+        rol = validated_data.get("rol", Usuario.ROL_ADMIN_FLOTA)
+
+        user = Usuario.objects.create_user(
+            password=password,
+            is_staff=is_staff,
+            **validated_data
+        )
+
+        # Si se crea como pasajero, inicializar carro persistente
+        if user.rol == Usuario.ROL_PASAJERO:
+            CarroPasajes.objects.get_or_create(usuario=user)
+
+        return user
+
+
+class UsuarioPrivilegiosUpdateSerializer(serializers.ModelSerializer):
+    """
+    Serializador para que el Superusuario modifique roles, empresas y privilegios de acceso.
+    """
+    empresa = serializers.PrimaryKeyRelatedField(
+        queryset=EmpresaTransporte.objects.all(), required=False, allow_null=True
+    )
+
+    class Meta:
+        model = Usuario
+        fields = [
+            "rol",
+            "empresa",
+            "is_staff",
+            "is_active",
+        ]
+
+
 # ==============================================================================
 # 2. SERIALIZADORES DE INFRAESTRUCTURA (EMPRESA/TENANT, CIUDAD, BUS, ASIENTO)
 # ==============================================================================

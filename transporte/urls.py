@@ -38,6 +38,8 @@ from .views import (
     RutaViewSet,
     EmpresaTransporteViewSet,
     BoletoEmbarqueView,
+    SuperuserGestionUsuariosView,
+    SuperuserModificarPrivilegiosView,
 )
 
 # Router para ViewSets de infraestructura y administración
@@ -97,7 +99,15 @@ urlpatterns = [
     path("boletos/<uuid:codigo_uuid>/embarque/", BoletoEmbarqueView.as_view(), name="boleto-embarque"),
 
     # --------------------------------------------------------------------------
-    # 6. ROUTER PARA CRUDs (SERVICIOS, BUSES, RUTAS, CIUDADES)
+    # 6. SUPERUSUARIO: GESTIÓN DE USUARIOS, ADMINISTRADORES Y PRIVILEGIOS
+    # --------------------------------------------------------------------------
+    # Listar y crear usuarios/administradores: GET/POST /api/superadmin/usuarios/
+    path("superadmin/usuarios/", SuperuserGestionUsuariosView.as_view(), name="superadmin-usuarios"),
+    # Conceder o revocar privilegios y roles: PATCH /api/superadmin/usuarios/{id}/privilegios/
+    path("superadmin/usuarios/<int:pk>/privilegios/", SuperuserModificarPrivilegiosView.as_view(), name="superadmin-usuario-privilegios"),
+
+    # --------------------------------------------------------------------------
+    # 7. ROUTER PARA CRUDs (SERVICIOS, BUSES, RUTAS, CIUDADES, EMPRESAS)
     # --------------------------------------------------------------------------
     path("", include(router.urls)),
 ]

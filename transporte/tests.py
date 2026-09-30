@@ -76,6 +76,25 @@ class SistemaBusesTestCase(APITestCase):
             rol=Usuario.ROL_PASAJERO,
         )
 
+        # Superusuario de prueba
+        self.superuser = Usuario.objects.create_superuser(
+            username="superadmin_test",
+            password="password123",
+            email="superadmin@test.cl",
+            first_name="Super",
+            last_name="User",
+            rol=Usuario.ROL_ADMIN_FLOTA,
+        )
+
+        # Empresa / Tenant de prueba
+        self.empresa_turbus = EmpresaTransporte.objects.create(
+            nombre="Empresa Setup Test",
+            rut="76.111.222-3",
+            slug="empresa-setup-test",
+            color_hex="#16a34a",
+            activo=True,
+        )
+
         # 2. Ciudades y Rutas
         self.ciudad_stgo = Ciudad.objects.create(
             nombre="Santiago", terminal="Terminal Sur", region="Metropolitana"
@@ -562,4 +581,104 @@ class SistemaBusesTestCase(APITestCase):
         self.assertEqual(res_del.data["eliminados"], 1)
         res_carro = self.client.get(reverse("carro-pasajes"))
         self.assertEqual(res_carro.data["cantidad_items"], 0)
+
+    # ==========================================================================
+    # TEST 15: SUPERUSUARIO CREA ADMINISTRADOR DE FLOTA
+    # ==========================================================================
+    def test_15_superuser_crear_administrador_desde_aplicacion(self):
+        """Verifica que el superusuario pueda registrar un Administrador de Flota con empresa asignada."""
+        self.client.force_authenticate(user=self.superuser)
+        url = reverse("superadmin-usuarios")
+        payload = {
+            "username": "nuevo_admin_flota",
+            "password": "PasswordSegura123",
+            "email": "nuevo_admin@turbus.cl",
+            "first_name": "Carlos",
+            "last_name": "Méndez",
+            "rut": "14.555.666-7",
+            "rol": Usuario.ROL_ADMIN_FLOTA,
+            "empresa": self.empresa_turbus.id,
+            "is_staff": True,
+        }
+        res = self.client.post(url, payload, format="json")
+        self.assertEqual(res.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(res.data["username"], "nuevo_admin_flota")
+        self.assertEqual(res.data["rol"], Usuario.ROL_ADMIN_FLOTA)
+        self.assertEqual(res.data["empresa"], self.empresa_turbus.id)
+        self.assertTrue(res.data["is_staff"])
+
+        # Verificar en base de datos
+        user_creado = Usuario.objects.get(username="nuevo_admin_flota")
+        self.assertEqual(user_creado.rol, Usuario.ROL_ADMIN_FLOTA)
+        self.assertEqual(user_creado.empresa, self.empresa_turbus)
+        self.assertTrue(user_creado.is_staff)
+
+    # ==========================================================================
+    # TEST 16: SUPERUSUARIO CONCEDE Y REVOCA PRIVILEGIOS DE ROL
+    # ==========================================================================
+    def test_16_superuser_conceder_y_revocar_privilegios(self):
+        """Verifica que el superusuario pueda ascender un pasajero a admin y luego revocar privilegios."""
+        self.client.force_authenticate(user=self.superuser)
+        url = reverse("superadmin-usuario-privilegios", kwargs={"pk": self.usuario_pasajero1.id})
+
+        # 1. Conceder privilegios: ascender a Administrador de Flota con empresa
+        res_ascender = self.client.patch(
+            url,
+            {
+                "rol": Usuario.ROL_ADMIN_FLOTA,
+                "empresa": self.empresa_turbus.id,
+                "is_staff": True,
+            },
+            format="json",
+        )
+        self.assertEqual(res_ascender.status_code, status.HTTP_200_OK)
+        self.assertEqual(res_ascender.data["rol"], Usuario.ROL_ADMIN_FLOTA)
+        self.assertEqual(res_ascender.data["empresa"], self.empresa_turbus.id)
+
+        self.usuario_pasajero1.refresh_from_db()
+        self.assertEqual(self.usuario_pasajero1.rol, Usuario.ROL_ADMIN_FLOTA)
+        self.assertEqual(self.usuario_pasajero1.empresa, self.empresa_turbus)
+
+        # 2. Revocar privilegios: degradar nuevamente a Pasajero y quitar empresa
+        res_revocar = self.client.patch(
+            url,
+            {
+                "rol": Usuario.ROL_PASAJERO,
+                "empresa": None,
+                "is_staff": False,
+            },
+            format="json",
+        )
+        self.assertEqual(res_revocar.status_code, status.HTTP_200_OK)
+        self.assertEqual(res_revocar.data["rol"], Usuario.ROL_PASAJERO)
+        self.assertIsNone(res_revocar.data["empresa"])
+
+        self.usuario_pasajero1.refresh_from_db()
+        self.assertEqual(self.usuario_pasajero1.rol, Usuario.ROL_PASAJERO)
+        self.assertIsNone(self.usuario_pasajero1.empresa)
+
+    # ==========================================================================
+    # TEST 17: USUARIOS NO SUPERUSER TIENEN ACCESO DENEGADO A GESTIÓN DE ROLES
+    # ==========================================================================
+    def test_17_usuarios_no_superuser_denegados_a_gestion_usuarios(self):
+        """Verifica que ni pasajeros ni administradores de flota comunes puedan acceder a la gestión de usuarios."""
+        url_lista = reverse("superadmin-usuarios")
+        url_privilegios = reverse("superadmin-usuario-privilegios", kwargs={"pk": self.usuario_pasajero2.id})
+
+        # Pasajero
+        self.client.force_authenticate(user=self.usuario_pasajero1)
+        self.assertEqual(self.client.get(url_lista).status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(
+            self.client.patch(url_privilegios, {"rol": Usuario.ROL_ADMIN_FLOTA}).status_code,
+            status.HTTP_403_FORBIDDEN,
+        )
+
+        # Administrador de Flota
+        self.client.force_authenticate(user=self.usuario_admin)
+        self.assertEqual(self.client.get(url_lista).status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(
+            self.client.patch(url_privilegios, {"rol": Usuario.ROL_ADMIN_FLOTA}).status_code,
+            status.HTTP_403_FORBIDDEN,
+        )
+
 
